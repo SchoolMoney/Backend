@@ -1,0 +1,30 @@
+services:
+  Backend:
+    build:
+      context: .
+      dockerfile: Dockerfile  
+    image: school-money/backend
+    container_name: SchoolMoneyBackend
+    ports:
+      - "8000:8000"
+    depends_on:
+      SQL:
+        condition: service_healthy
+
+  SQL:
+    container_name: SchoolMoneyPostgres
+    image: postgres:16.2
+    restart: unless-stopped
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
