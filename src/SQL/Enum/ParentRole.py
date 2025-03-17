@@ -1,0 +1,2 @@
+MEMBER = 1
+CASHIER = 2
