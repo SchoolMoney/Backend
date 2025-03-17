@@ -5,4 +5,11 @@ description = "Backed for SchoolMoney project"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "asyncpg>=0.30.0",
+    "dotenv>=0.9.9",
+    "fastapi>=0.115.11",
+    "greenlet>=3.1.1",
+    "psycopg2>=2.9.10",
+    "sqlmodel>=0.0.24",
+    "uvicorn>=0.34.0",
 ]
