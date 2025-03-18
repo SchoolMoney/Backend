@@ -91,7 +91,7 @@ async def update_class_group(
         )
 
 
-@class_group_router.delete("/{class_group_id}", status_code=status.HTTP_200_OK)
+@class_group_router.delete("/{class_group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_class_group(
         class_group_id: int,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
