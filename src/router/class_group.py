@@ -59,7 +59,7 @@ async def create_class_group(
     try:
         return await class_group_repository.create(sql_session, class_group)
     except HTTPException:
-        raise  # Re-raise HTTPException as is
+        raise
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
