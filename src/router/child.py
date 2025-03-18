@@ -77,6 +77,39 @@ async def create_child(
         )
 
 
+@child_router.put("/batch", status_code=status.HTTP_200_OK, response_model=List[Child])
+async def update_many_children(
+        children_data: List[dict],
+        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+) -> List[Child]:
+    """Update multiple children at once"""
+    try:
+        children = []
+        for child_data in children_data:
+            # Convert the string date to a proper date object if present
+            if "birth_date" in child_data and isinstance(child_data["birth_date"], str):
+                child_data["birth_date"] = datetime_date.fromisoformat(child_data["birth_date"])
+
+            # Create Child object
+            child = Child(**child_data)
+            children.append(child)
+
+        updated_children = await child_repository.update_many(sql_session, children)
+        return updated_children
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date format. Use YYYY-MM-DD"
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update children"
+        )
+
+
 @child_router.put("/{child_id}", status_code=status.HTTP_200_OK, response_model=Child)
 async def update_child(
         child_id: int,

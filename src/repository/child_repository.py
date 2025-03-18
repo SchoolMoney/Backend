@@ -65,6 +65,36 @@ async def update(session: SQL.AsyncSession, child_id: int, updated_child: Child)
         raise e
 
 
+async def update_many(session: SQL.AsyncSession, children: List[Child]) -> List[Child]:
+    """Update multiple children at once"""
+    try:
+        updated_children = []
+        for child in children:
+            if not hasattr(child, 'id') or child.id is None:
+                continue  # Skip children without IDs
+
+            db_child = await get_by_id(session, child.id)
+            if not db_child:
+                continue  # Skip children that don't exist
+
+            update_data = child.dict(exclude_unset=True)
+            for key, value in update_data.items():
+                if key != 'id':  # Don't update the ID
+                    setattr(db_child, key, value)
+
+            session.add(db_child)
+            updated_children.append(db_child)
+
+        await session.commit()
+        for child in updated_children:
+            await session.refresh(child)
+
+        return updated_children
+    except Exception as e:
+        await session.rollback()
+        raise e
+
+
 async def delete(session: SQL.AsyncSession, child_id: int) -> bool:
     """Delete a child"""
     try:
