@@ -1,25 +1,23 @@
 from sqlmodel import SQLModel, Field
 from datetime import date
-import src.SQL.Enum.Privilege as Privilege
+from src.Model.UserAccount import User
 
 
-class UserAccount(SQLModel, table=True):
+class UserAccount(SQLModel, User, table=True):
     """
     User account is used to authenticate user in the system. It can be associated with parent or employee.
     Privilege is used to determine user's role in the system. (defined in src.SQL.Enum.Privilege)
         - STANDARD_USER
         - ADMIN
-
+    Status is used to determine if user can log in to the system. (defined in src.SQL.Enum.AccountStatus)
+        - ENABLED
+        - DISABLED
+        - LOCKED
     """
 
     __tablename__ = "user_account"
     id: int = Field(primary_key=True)
-    username: str
     password: str
-    email: str
-    is_active: bool = Field(default=True)
-    privilege: int = Field(default=Privilege.STANDARD_USER)
-    is_locked: bool = Field(default=False)
 
 
 class Child(SQLModel, table=True):
