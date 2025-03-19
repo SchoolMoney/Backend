@@ -10,7 +10,7 @@ import src.config as config
 
 
 def create_table(
-    drop_existing: bool = DB_DROP_EXISTING_TABLES,
+    drop_existing: str = DB_DROP_EXISTING_TABLES,
 ) -> None:
     engine = create_engine(
         PG_CONNECTION_STRING.format(
@@ -22,6 +22,6 @@ def create_table(
         ),
         echo=True,
     )
-    if drop_existing:
+    if drop_existing.upper() == "TRUE":
         SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
