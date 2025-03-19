@@ -79,7 +79,7 @@ async def update_many(session: SQL.AsyncSession, children: List[Child]) -> List[
 
             update_data = child.dict(exclude_unset=True)
             for key, value in update_data.items():
-                if key != 'id':  # Don't update the ID
+                if key != 'id' and value  is not None:  # Don't update the ID
                     setattr(db_child, key, value)
 
             session.add(db_child)

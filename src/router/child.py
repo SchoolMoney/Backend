@@ -1,10 +1,44 @@
 from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from datetime import date as datetime_date
+from pydantic import BaseModel, ConfigDict
 
 import src.SQL as SQL
 from src.SQL.Tables import Child
 from src.repository import child_repository
+
+
+# Model definitions
+class ChildCreate(BaseModel):
+    """Model for creating a new child"""
+    name: str
+    surname: str
+    birth_date: datetime_date
+    group_id: int
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ChildUpdate(BaseModel):
+    """Model for updating a child - all fields optional"""
+    name: Optional[str] = None
+    surname: Optional[str] = None
+    birth_date: Optional[datetime_date] = None
+    group_id: Optional[int] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ChildBatchUpdate(BaseModel):
+    """Model for batch updating children - requires ID"""
+    id: int
+    name: Optional[str] = None
+    surname: Optional[str] = None
+    birth_date: Optional[datetime_date] = None
+    group_id: Optional[int] = None
+
+    model_config = ConfigDict(extra="forbid")
+
 
 child_router = APIRouter(prefix="/child", tags=["child"])
 
@@ -54,21 +88,18 @@ async def get_child(
 
 @child_router.post("/", response_model=Child, status_code=status.HTTP_201_CREATED)
 async def create_child(
-        child_data: dict,
+        child_data: ChildCreate,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Child:
     """Create a new child"""
     try:
-        if isinstance(child_data.get("birth_date"), str):
-            child_data["birth_date"] = datetime_date.fromisoformat(child_data["birth_date"])
-
-        # Create Child object from processed data
-        child = Child(**child_data)
+        # Create Child object from validated data
+        child = Child(**child_data.model_dump())
         return await child_repository.create(sql_session, child)
-    except ValueError:
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid date format. Use YYYY-MM-DD"
+            detail=f"Invalid data: {str(e)}"
         )
     except Exception:
         raise HTTPException(
@@ -79,28 +110,19 @@ async def create_child(
 
 @child_router.put("/batch", status_code=status.HTTP_200_OK, response_model=List[Child])
 async def update_many_children(
-        children_data: List[dict],
+        children_data: List[ChildBatchUpdate],
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> List[Child]:
     """Update multiple children at once"""
     try:
         children = []
         for child_data in children_data:
-            # Convert the string date to a proper date object if present
-            if "birth_date" in child_data and isinstance(child_data["birth_date"], str):
-                child_data["birth_date"] = datetime_date.fromisoformat(child_data["birth_date"])
-
-            # Create Child object
-            child = Child(**child_data)
+            # Create Child object with ID
+            child = Child(id=child_data.id, **child_data.model_dump(exclude={"id"}))
             children.append(child)
 
         updated_children = await child_repository.update_many(sql_session, children)
         return updated_children
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid date format. Use YYYY-MM-DD"
-        )
     except HTTPException:
         raise
     except Exception:
@@ -113,17 +135,13 @@ async def update_many_children(
 @child_router.put("/{child_id}", status_code=status.HTTP_200_OK, response_model=Child)
 async def update_child(
         child_id: int,
-        updated_data: dict,
+        updated_data: ChildUpdate,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Child:
     """Update an existing child"""
     try:
-        # Convert the string date to a proper date object if present
-        if "birth_date" in updated_data and isinstance(updated_data["birth_date"], str):
-            updated_data["birth_date"] = datetime_date.fromisoformat(updated_data["birth_date"])
-
-        # Create Child object
-        updated_child = Child(**updated_data)
+        # Create Child object from validated data (without ID)
+        updated_child = Child(**updated_data.model_dump(exclude_unset=True))
 
         child = await child_repository.update(sql_session, child_id, updated_child)
         if not child:
@@ -132,11 +150,6 @@ async def update_child(
                 detail=f"Child with ID {child_id} not found"
             )
         return child
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid date format. Use YYYY-MM-DD"
-        )
     except HTTPException:
         raise
     except Exception:
