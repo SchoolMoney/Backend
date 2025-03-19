@@ -2,7 +2,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 import src.SQL as SQL
 import src.Service.Auth as Auth
-from src.Model.UserAccount import User
 
 auth_router = APIRouter()
 
@@ -28,17 +27,3 @@ async def logout(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
 ):
     Auth.user_logout(user)
-
-
-@auth_router.get("/me", response_model=User)
-async def me(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
-) -> SQL.Tables.UserAccount:
-    return (
-        await sql_session.exec(
-            SQL.select(SQL.Tables.UserAccount).filter(
-                SQL.Tables.UserAccount.id == user.user_id
-            )
-        )
-    ).first()
