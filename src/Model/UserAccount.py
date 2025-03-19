@@ -9,3 +9,8 @@ class User(BaseModel):
     email: str | None
     privilege: int = Field(default=Privilege.STANDARD_USER)
     status: int = Field(default=AccountStatus.ENABLED)
+
+
+class RegisterUser(BaseModel):
+    username: str
+    password: str
