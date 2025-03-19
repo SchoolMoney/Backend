@@ -18,7 +18,16 @@ app = FastAPI(
     description=config.APP_DESCRIPTION,
 )
 
-app.include_router(router.user_router)
+app.include_router(
+    router.user_router,
+    prefix=f"{config.API_PREFIX}/user",
+    tags=["user"],
+)
+app.include_router(
+    router.auth_router,
+    prefix=f"{config.API_PREFIX}/auth",
+    tags=["auth"],
+)
 
 if __name__ == "__main__":
     uvicorn.run(

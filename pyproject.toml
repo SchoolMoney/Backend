@@ -10,6 +10,9 @@ dependencies = [
     "fastapi>=0.115.11",
     "greenlet>=3.1.1",
     "psycopg2>=2.9.10",
+    "pyjwt>=2.10.1",
+    "python-multipart>=0.0.20",
+    "redis>=5.2.1",
     "sqlmodel>=0.0.24",
     "uvicorn>=0.34.0",
 ]
