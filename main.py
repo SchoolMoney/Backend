@@ -32,6 +32,11 @@ app.add_middleware(
 
 
 app.include_router(
+    router.child_router,
+    prefix=f"{config.API_PREFIX}/user",
+    tags=["child"]
+)
+app.include_router(
     router.user_router,
     prefix=f"{config.API_PREFIX}/user",
     tags=["user"],
@@ -41,6 +46,7 @@ app.include_router(
     prefix=f"{config.API_PREFIX}/auth",
     tags=["auth"],
 )
+
 
 if __name__ == "__main__":
     uvicorn.run(
