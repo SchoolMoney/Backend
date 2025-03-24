@@ -31,3 +31,16 @@ class Login(BaseModel):
 
 class RegisterUser(Login):
     pass
+
+
+class ChangePassword(BaseModel):
+    old_password: str
+    new_password: str
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.old_password = hash_password(self.old_password)
+        self.new_password = hash_password(self.new_password)
+
+    def is_password_same(self) -> bool:
+        return self.old_password == self.new_password
