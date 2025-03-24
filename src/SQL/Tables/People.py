@@ -17,6 +17,7 @@ class UserAccount(SQLModel, User, table=True):
 
     __tablename__ = "user_account"
     id: int = Field(primary_key=True)
+    username: str = Field(index=True, unique=True)
     password: str
 
 

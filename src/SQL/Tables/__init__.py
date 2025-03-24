@@ -20,7 +20,7 @@ def create_table(
             port=config.DB_PORT,
             db_name=config.DB_NAME,
         ),
-        echo=True,
+        echo=False,
     )
     if drop_existing.upper() == "TRUE":
         SQLModel.metadata.drop_all(engine)
