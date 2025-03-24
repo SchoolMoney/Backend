@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from src.Model.UserAccount import RegisterUser, User
 import src.SQL as SQL
 import src.Service.Auth as Auth
@@ -14,7 +14,14 @@ async def register_user(
 ) -> None:
     user_account = SQL.Tables.UserAccount(**user.model_dump())
     sql_session.add(user_account)
-    await sql_session.commit()
+    try:
+        await sql_session.commit()
+    except Exception as e:
+        if e.orig.pgcode == "23505":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username already exists",
+            )
 
 
 @user_router.get("/me", response_model=User)
