@@ -3,13 +3,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import src.config as config
-import src.SQL.Tables as Tables
+import src.SQL as SQL
+from src.SQL.data_insert import insert_data
 import src.router as router
 
 
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
-    Tables.create_table()
+    SQL.Tables.create_table()
+    await insert_data()
     yield
 
 

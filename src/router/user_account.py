@@ -9,7 +9,7 @@ user_router = APIRouter()
 
 @user_router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_user(
-    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
     user: RegisterUser,
 ) -> None:
     user_account = SQL.Tables.UserAccount(**user.model_dump())
@@ -27,7 +27,7 @@ async def register_user(
 @user_router.get("/me", response_model=User)
 async def me(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
 ) -> SQL.Tables.UserAccount:
     """
     Returns information about logged in user.
