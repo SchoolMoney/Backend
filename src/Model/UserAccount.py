@@ -11,6 +11,11 @@ class User(BaseModel):
     status: int = Field(default=AccountStatus.ENABLED)
 
 
+class Login(BaseModel):
+    username: str
+    password: str
+
+
 class RegisterUser(BaseModel):
     username: str
     password: str

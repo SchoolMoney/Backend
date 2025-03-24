@@ -1,12 +1,13 @@
 from fastapi import HTTPException, status
 import src.Service.Auth.Models as AuthModels
+import src.Model.UserAccount as UserModel
 import src.SQL as SQL
 from .jwt import generate_access_token
 from .helpers import get_user_account
 
 
 async def user_login(
-    login_form: AuthModels.Login,
+    login_form: UserModel.Login,
     sql_session: SQL.AsyncSession,
 ) -> AuthModels.Token:
     if login_form is None or login_form.username is None or login_form.password is None:

@@ -2,13 +2,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 import src.SQL as SQL
 import src.Service.Auth as Auth
+import src.Model.UserAccount as UserModel
 
 auth_router = APIRouter()
 
 
 @auth_router.post("/login", response_model=Auth.Token)
 async def login(
-    form_data: Auth.Login,
+    form_data: UserModel.Login,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Auth.Token:
     return await Auth.user_login(form_data, sql_session)
