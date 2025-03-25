@@ -2,7 +2,9 @@ from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 import src.SQL as SQL
+from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import ClassGroup
+from src.Service import Auth
 from src.repository import class_group_repository
 
 class_group_router = APIRouter(prefix="/class_group", tags=["class_group"])
@@ -10,6 +12,7 @@ class_group_router = APIRouter(prefix="/class_group", tags=["class_group"])
 
 @class_group_router.get("/", status_code=status.HTTP_200_OK, response_model=List[ClassGroup])
 async def get_class_groups(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
         skip: int = 0,
         limit: int = 100,
@@ -29,6 +32,7 @@ async def get_class_groups(
 
 @class_group_router.get("/{class_group_id}", status_code=status.HTTP_200_OK, response_model=ClassGroup)
 async def get_class_group(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         class_group_id: int,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> ClassGroup:
@@ -52,10 +56,16 @@ async def get_class_group(
 
 @class_group_router.post("/", response_model=ClassGroup, status_code=status.HTTP_201_CREATED)
 async def create_class_group(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         class_group: ClassGroup,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> ClassGroup:
     """Create a new class group"""
+    if user.user_privilege != ADMIN_USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to create a class group")
+
     try:
         return await class_group_repository.create(sql_session, class_group)
     except HTTPException:
@@ -69,11 +79,17 @@ async def create_class_group(
 
 @class_group_router.put("/{class_group_id}", status_code=status.HTTP_200_OK, response_model=ClassGroup)
 async def update_class_group(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         class_group_id: int,
         updated_class_group: ClassGroup,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> ClassGroup:
     """Update an existing class group"""
+    if user.user_privilege != ADMIN_USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to create a class group")
+
     try:
         class_group = await class_group_repository.update(sql_session, class_group_id, updated_class_group)
         if not class_group:
@@ -93,10 +109,16 @@ async def update_class_group(
 
 @class_group_router.delete("/{class_group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_class_group(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         class_group_id: int,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> None:
     """Delete a class group"""
+    if user.user_privilege != ADMIN_USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to create a class group")
+
     try:
         deleted = await class_group_repository.delete(sql_session, class_group_id)
         if not deleted:
