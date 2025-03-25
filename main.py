@@ -44,6 +44,10 @@ app.include_router(
     tags=["auth"],
 )
 
+app.include_router(router.parent_profile,
+                   prefix=f"{config.API_PREFIX}/parent",
+                   tags=["parent"],)
+
 if __name__ == "__main__":
     uvicorn.run(
         app,
