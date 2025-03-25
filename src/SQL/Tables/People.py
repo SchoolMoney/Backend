@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel, Field
 from datetime import date
 from src.Model.UserAccount import User
+from src.Model.PeopleModel import ParentModel
 
 
 class UserAccount(SQLModel, User, table=True):
@@ -17,6 +18,7 @@ class UserAccount(SQLModel, User, table=True):
 
     __tablename__ = "user_account"
     id: int = Field(primary_key=True)
+    username: str = Field(index=True, unique=True)
     password: str
 
 
@@ -44,7 +46,7 @@ class Parenthood(SQLModel, table=True):
     child_id: int = Field(primary_key=True, foreign_key="child.id")
 
 
-class Parent(SQLModel, table=True):
+class Parent(SQLModel, ParentModel, table=True):
     """
     Parent is a person who is responsible for child. It can be associated with more than one child via Parenthood table.
     Parent must be associated with user account.
@@ -52,10 +54,5 @@ class Parent(SQLModel, table=True):
 
     __tablename__ = "parent"
     id: int = Field(primary_key=True)
-    account_id: int = Field(foreign_key="user_account.id")
-    name: str
-    surname: str
-    phone: str
-    city: str
-    street: str
-    house_number: str
+    account_id: int = Field(foreign_key="user_account.id", unique=True)
+
