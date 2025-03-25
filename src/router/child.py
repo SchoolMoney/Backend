@@ -58,16 +58,11 @@ async def get_child(
 
 @child_router.post("/", response_model=Child, status_code=status.HTTP_201_CREATED)
 async def create_child(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
         child_data: ChildCreate,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Child:
     """Create a new child"""
-    if user.user_privilege != ADMIN_USER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to create a class group")
-
     try:
         # Create Child object from validated data
         child = Child(**child_data.model_dump())
@@ -139,16 +134,11 @@ async def update_child(
 
 @child_router.delete("/{child_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_child(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
         child_id: int,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> None:
     """Delete a child"""
-    if user.user_privilege != ADMIN_USER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to create a class group")
-
     try:
         deleted = await child_repository.delete(sql_session, child_id)
         if not deleted:
