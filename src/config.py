@@ -16,7 +16,7 @@ DB_PORT = os.getenv("DB_PORT", 5432)
 DB_NAME = os.getenv("DB_NAME", "postgres")
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
-DB_DROP_EXISTING_TABLES = os.getenv("DB_DROP_EXISTING_TABLES", False)
+DB_DROP_EXISTING_TABLES = os.getenv("DB_DROP_EXISTING_TABLES", "FALSE")
 
 SECRET_KEY = os.getenv(
     "SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
