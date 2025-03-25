@@ -10,6 +10,8 @@ services:
     depends_on:
       SQL:
         condition: service_healthy
+    environment:
+      - DB_ADDRESS=SQL
 
   SQL:
     container_name: SchoolMoneyPostgres
