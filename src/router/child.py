@@ -1,50 +1,19 @@
 from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from datetime import date as datetime_date
-from pydantic import BaseModel, ConfigDict
 
 import src.SQL as SQL
+from src.Model.ChildModel import ChildCreate, ChildBatchUpdate, ChildUpdate
+from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import Child
+from src.Service import Auth
 from src.repository import child_repository
-
-
-# Model definitions
-class ChildCreate(BaseModel):
-    """Model for creating a new child"""
-    name: str
-    surname: str
-    birth_date: datetime_date
-    group_id: int
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class ChildUpdate(BaseModel):
-    """Model for updating a child - all fields optional"""
-    name: Optional[str] = None
-    surname: Optional[str] = None
-    birth_date: Optional[datetime_date] = None
-    group_id: Optional[int] = None
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class ChildBatchUpdate(BaseModel):
-    """Model for batch updating children - requires ID"""
-    id: int
-    name: Optional[str] = None
-    surname: Optional[str] = None
-    birth_date: Optional[datetime_date] = None
-    group_id: Optional[int] = None
-
-    model_config = ConfigDict(extra="forbid")
-
 
 child_router = APIRouter(prefix="/child", tags=["child"])
 
 
 @child_router.get("/", status_code=status.HTTP_200_OK, response_model=List[Child])
 async def get_children(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
         skip: int = 0,
         limit: int = 100,
@@ -65,6 +34,7 @@ async def get_children(
 
 @child_router.get("/{child_id}", status_code=status.HTTP_200_OK, response_model=Child)
 async def get_child(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         child_id: int,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Child:
@@ -88,10 +58,16 @@ async def get_child(
 
 @child_router.post("/", response_model=Child, status_code=status.HTTP_201_CREATED)
 async def create_child(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         child_data: ChildCreate,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Child:
     """Create a new child"""
+    if user.user_privilege != ADMIN_USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to create a class group")
+
     try:
         # Create Child object from validated data
         child = Child(**child_data.model_dump())
@@ -110,6 +86,7 @@ async def create_child(
 
 @child_router.put("/batch", status_code=status.HTTP_200_OK, response_model=List[Child])
 async def update_many_children(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         children_data: List[ChildBatchUpdate],
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> List[Child]:
@@ -134,6 +111,7 @@ async def update_many_children(
 
 @child_router.put("/{child_id}", status_code=status.HTTP_200_OK, response_model=Child)
 async def update_child(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         child_id: int,
         updated_data: ChildUpdate,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
@@ -161,10 +139,16 @@ async def update_child(
 
 @child_router.delete("/{child_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_child(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         child_id: int,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> None:
     """Delete a child"""
+    if user.user_privilege != ADMIN_USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to create a class group")
+
     try:
         deleted = await child_repository.delete(sql_session, child_id)
         if not deleted:
