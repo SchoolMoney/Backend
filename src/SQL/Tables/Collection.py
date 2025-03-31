@@ -1,5 +1,6 @@
 from sqlmodel import SQLModel, Field
 from datetime import date
+import src.SQL.Enum.CollectionStatus as CollectionStatus
 
 
 class Collection(SQLModel, table=True):
@@ -12,10 +13,12 @@ class Collection(SQLModel, table=True):
 
     __tablename__ = "collection"
     id: int = Field(primary_key=True)
+    logo_path: str = Field(nullable=True)
     name: str
     description: str
     start_date: date = Field(default=date.today())
     end_date: date | None
+    status: int = Field(default=CollectionStatus.OPEN)
     price: float
     class_group_id: int = Field(foreign_key="class_group.id")
     bank_account_id: int = Field(foreign_key="bank_account.id")
