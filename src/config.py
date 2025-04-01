@@ -10,6 +10,7 @@ load_dotenv()
 
 API_PORT = os.getenv("PORT", 8000)
 API_ADDRESS = os.getenv("ADDRESS", "0.0.0.0")
+CORS_FRONTEND = os.getenv("CORS_FRONTEND", "http://localhost:5173")
 
 DB_ADDRESS = os.getenv("DB_ADDRESS", "localhost")
 DB_PORT = os.getenv("DB_PORT", 5432)
