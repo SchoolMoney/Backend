@@ -12,6 +12,7 @@ services:
         condition: service_healthy
     environment:
       - DB_ADDRESS=SQL
+      - REDIS_HOST=redis
 
   SQL:
     container_name: SchoolMoneyPostgres
