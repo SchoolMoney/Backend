@@ -41,6 +41,21 @@ async def get_by_id(session: SQL.AsyncSession, class_group_id: int) -> Optional[
     return result.first()
 
 
+async def get_by_belonging_user(session: SQL.AsyncSession, user_id: int) -> Optional[Sequence[ClassGroup]]:
+    """Get a specific class groups which user belongs to"""
+    query = SQL.select(SQL.Tables.ClassGroup).join(
+        SQL.Tables.ParentGroupRole, SQL.Tables.ParentGroupRole.class_group_id == SQL.Tables.ClassGroup.id).join(
+        SQL.Tables.Parent, SQL.Tables.Parent.id == SQL.Tables.ParentGroupRole.parent_id).filter(
+        SQL.Tables.Parent.account_id == user_id
+    )
+
+    class_groups = await session.exec(query)
+    class_groups_result = class_groups.all()
+    if class_groups_result  is None:
+        return None
+    return class_groups_result
+
+
 async def update(session: SQL.AsyncSession, class_group_id: int, updated_class_group: ClassGroup) -> Optional[
     ClassGroup]:
     """Update an existing class group"""

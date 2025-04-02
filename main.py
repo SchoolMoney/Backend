@@ -32,7 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 app.include_router(
     router.child_router,
     prefix=f"{config.API_PREFIX}/user",
@@ -49,11 +48,17 @@ app.include_router(
     tags=["auth"],
 )
 
-app.include_router(router.parent_profile,
-                   prefix=f"{config.API_PREFIX}/parent",
-                   tags=["parent"],
+app.include_router(
+    router.parent_profile,
+    prefix=f"{config.API_PREFIX}/parent",
+    tags=["parent"],
 )
 
+app.include_router(
+    router.class_group_router,
+    prefix=f"{config.API_PREFIX}/class_group",
+    tags=["class_group"],
+)
 
 if __name__ == "__main__":
     uvicorn.run(
