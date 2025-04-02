@@ -6,8 +6,9 @@ from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import ClassGroup
 from src.Service import Auth
 from src.repository import class_group_repository
+from src.repository.class_group_repository import get_by_belonging_user
 
-class_group_router = APIRouter(prefix="/class_group", tags=["class_group"])
+class_group_router = APIRouter(tags=["class_group"])
 
 
 @class_group_router.get("/", status_code=status.HTTP_200_OK, response_model=List[ClassGroup])
@@ -71,8 +72,22 @@ async def create_class_group(
             detail="Failed to create class group"
         )
 
+@class_group_router.get("/list-class-groups", status_code=status.HTTP_200_OK)
+async def get_user_class_groups(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+):
+    """Get all user class groups which he belongs to"""
+    print("weszło")
+    query_result = await get_by_belonging_user(sql_session, user.user_id)
+    if not query_result:
+        raise HTTPException(
+            status_code=status.HTTP_204_NO_CONTENT,
+            detail="You have no children in any class"
+        )
+    return query_result
 
-@class_group_router.put("/{class_group_id}", status_code=status.HTTP_200_OK, response_model=ClassGroup)
+@class_group_router.put("/class_group_id", status_code=status.HTTP_200_OK, response_model=ClassGroup)
 async def update_class_group(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
         class_group_id: int,
@@ -97,7 +112,7 @@ async def update_class_group(
         )
 
 
-@class_group_router.delete("/{class_group_id}", status_code=status.HTTP_204_NO_CONTENT)
+@class_group_router.delete("/class_group_id", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_class_group(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
         class_group_id: int,
