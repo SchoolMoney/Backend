@@ -47,7 +47,7 @@ async def get_by_belonging_user(session: SQL.AsyncSession, user_id: int) -> Opti
         SQL.Tables.ParentGroupRole, SQL.Tables.ParentGroupRole.class_group_id == SQL.Tables.ClassGroup.id).join(
         SQL.Tables.Parent, SQL.Tables.Parent.id == SQL.Tables.ParentGroupRole.parent_id).filter(
         SQL.Tables.Parent.account_id == user_id
-    )
+    ).order_by(SQL.Tables.ClassGroup.id.desc())
 
     class_groups = await session.exec(query)
     class_groups_result = class_groups.all()
