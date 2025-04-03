@@ -31,7 +31,7 @@ async def get_class_groups(
         )
 
 
-@class_group_router.get("/{class_group_id}", status_code=status.HTTP_200_OK, response_model=ClassGroup)
+@class_group_router.get("/class_group_id", status_code=status.HTTP_200_OK, response_model=ClassGroup)
 async def get_class_group(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         class_group_id: int,
@@ -76,7 +76,7 @@ async def create_class_group(
 async def get_user_class_groups(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
-):
+) -> Sequence[ClassGroup]:
     """Get all user class groups which he belongs to"""
     print("weszło")
     query_result = await get_by_belonging_user(sql_session, user.user_id)
