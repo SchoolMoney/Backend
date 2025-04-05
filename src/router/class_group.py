@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 import src.SQL as SQL
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
-from src.SQL.Enum import CollectionStatus
 from src.SQL.Tables import ClassGroup
 from src.Service import Auth
 from src.repository import class_group_repository
@@ -143,7 +142,6 @@ async def delete_class_group(
 @class_group_router.get("/class-view", status_code=status.HTTP_200_OK)
 async def get_class_view(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
         class_group_id: int,
         collection_status: CollectionStatusEnum = Query(
             default=CollectionStatusEnum.OPEN,
@@ -153,9 +151,9 @@ async def get_class_view(
     """Get a specific class view by ID"""
 
     class_view_data = await class_view_operations.collect_class_view_data(
-        sql_session,
         class_group_id,
-        int(collection_status)
+        int(collection_status),
+        user.user_id
     )
 
     if not class_view_data["class"]:
