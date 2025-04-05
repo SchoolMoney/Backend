@@ -1,0 +1,22 @@
+from datetime import date
+
+from pydantic import BaseModel, field_validator
+
+from src.Model.CollectionStatusEnum import CollectionStatusEnum
+
+
+class CollectionModel(BaseModel):
+    id: int
+    logo_path: str
+    name: str
+    description: str
+    start_date: date
+    end_date: date
+    status: CollectionStatusEnum
+    price: float
+    class_group_id: int
+    bank_account_id: int
+    owner_id: int
+
+    class Config:
+        orm_mode = True

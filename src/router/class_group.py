@@ -2,11 +2,13 @@ from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 import src.SQL as SQL
+from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import ClassGroup
 from src.Service import Auth
 from src.repository import class_group_repository
 from src.repository.class_group_repository import get_by_belonging_user
+from src.Service.ClassView import class_view_operations
 
 class_group_router = APIRouter(tags=["class_group"])
 
@@ -72,6 +74,7 @@ async def create_class_group(
             detail="Failed to create class group"
         )
 
+
 @class_group_router.get("/list-class-groups", status_code=status.HTTP_200_OK)
 async def get_user_class_groups(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
@@ -86,6 +89,7 @@ async def get_user_class_groups(
             detail="You have no children in any class"
         )
     return query_result
+
 
 @class_group_router.put("/class_group_id", status_code=status.HTTP_200_OK, response_model=ClassGroup)
 async def update_class_group(
@@ -133,3 +137,36 @@ async def delete_class_group(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete class group"
         )
+
+
+@class_group_router.get("/class-view", status_code=status.HTTP_200_OK)
+async def get_class_view(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        class_group_id: int,
+        collection_status: CollectionStatusEnum = Query(
+            default=CollectionStatusEnum.OPEN,
+            description="Status kolekcji: 0=OPEN, 1=FINISHED, 2=NOT_PAID_BEFORE_DEADLINE, 3=CANCELLED"
+        )
+):
+    """Get a specific class view by ID"""
+
+    class_view_data = await class_view_operations.collect_class_view_data(
+        class_group_id,
+        int(collection_status),
+        user.user_id
+    )
+
+    if not class_view_data["class"]:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Class view not found"
+        )
+
+    parent_account_ids = [parent['account_id'] for parent in class_view_data["parents"]]
+    if user.user_id not in parent_account_ids and user.user_privilege!=ADMIN_USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"User not allowed to view this class"
+        )
+    return class_view_data
+
