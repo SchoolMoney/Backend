@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from src.Model.PeopleModel import ParentModel
 import src.SQL as SQL
 import src.Service.Auth as Auth
+from src.Service.IBAN_generator.iban_db_service import create_bank_account
 
 parent_profile = APIRouter()
 
@@ -15,10 +16,13 @@ async def create_parent_profile(
 ) -> SQL.Tables.People.Parent:
     parent_entry.is_valid_number()
 
+    bank_account = await create_bank_account(sql_session)
+
     parent_record = SQL.Tables.People.Parent(
         **{
             **parent_entry.model_dump(),
             "account_id": user.user_id,
+            "bank_account_id": bank_account.id
         }
     )
     sql_session.add(parent_record)
@@ -26,6 +30,7 @@ async def create_parent_profile(
         await sql_session.commit()
     except Exception as e:
         if e.orig.pgcode == "23505":
+            await sql_session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="You are already a parent",
