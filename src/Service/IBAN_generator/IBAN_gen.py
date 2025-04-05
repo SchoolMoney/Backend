@@ -42,7 +42,6 @@ def generate_iban(use_timestamp=True):
 
     try:
         iban = IBAN.generate('PL', bank_code, account_number)
-
-        return str(iban)
+        return str(iban[2:])
     except ValueError as e:
         return {"error": str(e)}
