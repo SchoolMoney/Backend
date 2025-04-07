@@ -60,6 +60,12 @@ app.include_router(
     tags=["class_group"],
 )
 
+app.include_router(
+    router.collection_router,
+    prefix=f"{config.API_PREFIX}/collection",
+    tags=["collection"],
+)
+
 if __name__ == "__main__":
     uvicorn.run(
         app,
