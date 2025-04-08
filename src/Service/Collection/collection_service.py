@@ -1,16 +1,20 @@
-from src.repository import collection_repository, class_group_repository, bank_account_repository
+from datetime import datetime
+from src.Model.CollectionModel import CreateCollection
+from src.repository import collection_repository
 import src.SQL as SQL
 
 from fastapi import HTTPException, status
 from src.SQL.Tables import Collection
-from src.Model import CollectionStatusEnum
+from src.SQL.Enum import CollectionStatus
+from src.Service.IBAN_generator import iban_db_service
+from src.repository import class_group_repository
 
 
 async def create(
-    sql_session: SQL.AsyncSession, owner_id: int, collection_data: Collection
+    sql_session: SQL.AsyncSession, owner_id: int, collection_data: CreateCollection
 ) -> Collection:
     class_group = await class_group_repository.get_by_id(
-        sql_session, collection_data.get('class_group_id')
+        sql_session, collection_data.class_group_id
     )
     if not class_group:
         raise HTTPException(
@@ -18,18 +22,19 @@ async def create(
             detail="Class group does not exist"
         )
         
-    bank_account = await bank_account_repository.get_by_id(
-        sql_session, collection_data['bank_account_id']
+    bank_account = await iban_db_service.create_bank_account(
+        sql_session
     )
-    if not bank_account:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Bank account does not exist"
-        )
+    
+    print(bank_account)
     
     collection_data.owner_id = owner_id
+    collection_data.bank_account_id = bank_account.id
+    collection_data.status = CollectionStatus.OPEN
+        
+    collection = SQL.Tables.Collection(**collection_data.model_dump())
     
-    return await collection_repository.create(sql_session, collection_data)
+    return await collection_repository.create(sql_session, collection)
 
 
 async def update(
@@ -41,15 +46,8 @@ async def update(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Collection not found"
         )
-        
-    collection = await collection_repository.get_by_id(sql_session, collection_id)
-    if not collection:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Collection not found"
-        )
     
-    if collection.status != CollectionStatusEnum.OPEN:
+    if collection.status != CollectionStatus.OPEN:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot update collection with a status other than OPEN"
@@ -68,13 +66,13 @@ async def cancel(
             detail="Collection not found"
         )
     
-    if collection.status != CollectionStatusEnum.OPEN:
+    if collection.status != CollectionStatus.OPEN:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot cancel collection with a status other than OPEN"
         )
     
-    collection.status = CollectionStatusEnum.CANCELLED
+    collection.status = CollectionStatus.CANCELLED
     return await collection_repository.update(sql_session, collection_id, collection)
 
 
@@ -88,7 +86,7 @@ async def delete(
             detail="Collection not found"
         )
     
-    if collection.status != CollectionStatusEnum.OPEN:
+    if collection.status != CollectionStatus.OPEN:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete collection with a status other than OPEN"

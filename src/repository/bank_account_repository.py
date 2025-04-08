@@ -10,3 +10,10 @@ async def get_by_id(session: SQL.AsyncSession, BankAccount_id: int) -> Optional[
     result = await session.exec(query)
     
     return result.first()
+  
+
+async def get_all(session: SQL.AsyncSession) -> Sequence[BankAccount]:
+    query = select(BankAccount)
+    result = await session.exec(query)
+    
+    return result.all()

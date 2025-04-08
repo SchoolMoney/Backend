@@ -2,6 +2,7 @@ from datetime import date
 from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status, logger
 
+from src.Model.CollectionModel import CreateCollection
 import src.SQL as SQL
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
@@ -54,12 +55,12 @@ async def get_by_id(
 
 @collection_router.post("", response_model=Collection, status_code=status.HTTP_201_CREATED)
 async def create(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
-    collection: Collection,
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    collection: CreateCollection,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Collection:
     try:
-        return await collection_service.create(sql_session, user.id, collection)
+        return await collection_service.create(sql_session, user.user_id, collection)
     except Exception as e:
         logger.logger.error(f"Error creating collection: {e}")
         raise HTTPException(
