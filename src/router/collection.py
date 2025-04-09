@@ -90,12 +90,12 @@ async def update(
 
 @collection_router.put("/{collection_id}/cancel", status_code=status.HTTP_200_OK, response_model=Collection)
 async def cancel(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     collection_id: int,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Collection:
     try:
-        return await collection_service.cancel(sql_session, collection_id)
+        return await collection_service.cancel(sql_session, collection_id, user)
     except Exception as e:
         logger.logger.error(f"Error canceling collection ID {collection_id}: {e}")
         raise HTTPException(

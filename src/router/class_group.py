@@ -81,7 +81,6 @@ async def get_user_class_groups(
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Sequence[ClassGroup]:
     """Get all user class groups which he belongs to"""
-    print("weszło")
     query_result = await get_by_belonging_user(sql_session, user.user_id)
     if not query_result:
         raise HTTPException(

@@ -3,11 +3,10 @@ from typing import List, Optional, Sequence
 from fastapi import logger
 from sqlmodel import col, select
 
-from src.Model.CollectionModel import CreateCollection
 import src.SQL as SQL
 from src.SQL.Tables import Collection
 import src.SQL.Tables as CollectionStatusEnum
-import src.SQL.Enum as CollectionStatus
+from src.SQL.Enum.CollectionStatus import CANCELLED
 
 
 async def get(
@@ -61,10 +60,6 @@ async def update(session: SQL.AsyncSession, collection_id: int, updated_collecti
         update_data = updated_collection.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(db_collection, key, value)
-            
-        updated_collection.start_date = datetime.strptime(updated_collection.start_date, "%Y-%m-%d").date()
-        if updated_collection.end_date:
-            updated_collection.end_date = datetime.strptime(updated_collection.end_date, "%Y-%m-%d").date()
 
         session.add(db_collection)
         await session.commit()
@@ -81,7 +76,7 @@ async def cancel(session: SQL.AsyncSession, collection_id: int) -> Optional[Coll
         if not db_collection:
             return None
             
-        db_collection.status = CollectionStatus.CANCELLED
+        db_collection.status = CANCELLED
 
         session.add(db_collection)
         await session.commit()
