@@ -9,10 +9,10 @@ parent_profile = APIRouter()
 
 
 @parent_profile.post("/parent-profile", response_model=SQL.Tables.People.Parent)
-async def create_parent_profile(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
-        parent_entry: ParentModel,
+async def create(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
+    parent_entry: ParentModel,
 ) -> SQL.Tables.People.Parent:
     parent_entry.is_valid_number()
 
@@ -41,10 +41,10 @@ async def create_parent_profile(
 
 
 @parent_profile.put("/parent-profile", response_model=SQL.Tables.People.Parent)
-async def create_parent_profile(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
-        parent_entry: ParentModel,
+async def update(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
+    parent_entry: ParentModel,
 ) -> SQL.Tables.People.Parent:
     parent_entry.is_valid_number()
 
@@ -68,9 +68,9 @@ async def create_parent_profile(
 
 
 @parent_profile.get("/parent-profile", response_model=SQL.Tables.People.Parent)
-async def create_parent_profile(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
+async def get(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
 ) -> SQL.Tables.People.Parent:
     if (parent_record := (await sql_session.exec(
             SQL.select(SQL.Tables.People.Parent).filter(
