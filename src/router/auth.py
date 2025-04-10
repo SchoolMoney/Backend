@@ -58,3 +58,20 @@ async def update_password(
     DB_user.password = request.new_password
     await sql_session.commit()
 
+
+@auth_router.put("/identity", status_code=status.HTTP_204_NO_CONTENT)
+async def update_identity(
+    request: UserModel.UpdateIdentity,
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
+):
+    DB_user: SQL.Tables.UserAccount = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.UserAccount).filter(
+                SQL.Tables.UserAccount.id == user.user_id
+            )
+        )
+    ).first()
+
+    DB_user.username = request.username
+    await sql_session.commit()

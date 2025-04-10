@@ -44,3 +44,7 @@ class ChangePassword(BaseModel):
 
     def is_password_same(self) -> bool:
         return self.old_password == self.new_password
+
+
+class UpdateIdentity(BaseModel):
+    username: str
