@@ -1,6 +1,8 @@
 from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from src.Service.ClassGroup import class_group_service
+from src.Model.ClassGroup import AddClassGroup, UpdateClassGroup
 import src.SQL as SQL
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
@@ -60,12 +62,12 @@ async def get_class_group(
 @class_group_router.post("/", response_model=ClassGroup, status_code=status.HTTP_201_CREATED)
 async def create_class_group(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
-        class_group: ClassGroup,
+        request: AddClassGroup,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> ClassGroup:
     """Create a new class group"""
     try:
-        return await class_group_repository.create(sql_session, class_group)
+        return await class_group_service.create(sql_session, request)
     except HTTPException:
         raise
     except Exception:
@@ -94,12 +96,12 @@ async def get_user_class_groups(
 async def update_class_group(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
         class_group_id: int,
-        updated_class_group: ClassGroup,
+        request: UpdateClassGroup,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> ClassGroup:
     """Update an existing class group"""
     try:
-        class_group = await class_group_repository.update(sql_session, class_group_id, updated_class_group)
+        class_group = await class_group_repository.update(sql_session, class_group_id, request)
         if not class_group:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -115,7 +117,7 @@ async def update_class_group(
         )
 
 
-@class_group_router.delete("/class_group_id", status_code=status.HTTP_204_NO_CONTENT)
+@class_group_router.delete("/{class_group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_class_group(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
         class_group_id: int,

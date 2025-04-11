@@ -41,6 +41,13 @@ async def get_by_id(session: SQL.AsyncSession, class_group_id: int) -> Optional[
     return result.first()
 
 
+async def get_by_name(session: SQL.AsyncSession, name: str) -> Optional[ClassGroup]:
+    """Get a specific class group by name"""
+    query = select(ClassGroup).where(ClassGroup.name == name)
+    result = await session.exec(query)
+    return result.first()
+
+
 async def get_by_belonging_user(session: SQL.AsyncSession, user_id: int) -> Optional[Sequence[ClassGroup]]:
     """Get a specific class groups which user belongs to"""
     query = SQL.select(SQL.Tables.ClassGroup).join(
