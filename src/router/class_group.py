@@ -15,11 +15,11 @@ class_group_router = APIRouter(tags=["class_group"])
 
 @class_group_router.get("/", status_code=status.HTTP_200_OK, response_model=List[ClassGroup])
 async def get_class_groups(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
-        skip: int = 0,
-        limit: int = 100,
-        ids: Optional[List[int]] = Query(None),
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    skip: int = 0,
+    limit: int = 100,
+    ids: Optional[List[int]] = Query(None),
 ) -> Sequence[ClassGroup]:
     """Get multiple class groups. Can filter by IDs or get all with pagination."""
     try:
@@ -33,7 +33,7 @@ async def get_class_groups(
         )
 
 
-@class_group_router.get("/class_group_id", status_code=status.HTTP_200_OK, response_model=ClassGroup)
+@class_group_router.get("/{class_group_id}", status_code=status.HTTP_200_OK, response_model=ClassGroup)
 async def get_class_group(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         class_group_id: int,
@@ -90,7 +90,7 @@ async def get_user_class_groups(
     return query_result
 
 
-@class_group_router.put("/class_group_id", status_code=status.HTTP_200_OK, response_model=ClassGroup)
+@class_group_router.put("/{class_group_id}", status_code=status.HTTP_200_OK, response_model=ClassGroup)
 async def update_class_group(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
         class_group_id: int,

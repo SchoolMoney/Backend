@@ -18,10 +18,10 @@ async def create(session: SQL.AsyncSession, class_group: ClassGroup) -> ClassGro
 
 
 async def get_all(
-        session: SQL.AsyncSession,
-        skip: int = 0,
-        limit: int = 100,
-        ids: Optional[List[int]] = None
+    session: SQL.AsyncSession,
+    skip: int = 0,
+    limit: int = 100,
+    ids: Optional[List[int]] = None
 ) -> Sequence[ClassGroup]:
     """Get multiple class groups with optional filtering"""
     query = select(ClassGroup)
