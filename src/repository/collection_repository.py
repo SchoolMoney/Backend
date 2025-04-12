@@ -16,27 +16,33 @@ async def get(
     start_date_to: Optional[datetime] = None,
     end_date_from: Optional[datetime] = None,
     end_date_to: Optional[datetime] = None,
-    status: Optional[CollectionStatusEnum] = None
+    status: Optional[CollectionStatusEnum] = None,
 ) -> Sequence[Collection]:
     query = select(Collection).where(
         (Collection.name == name if name is not None else True),
-        (Collection.start_date >= start_date_from if start_date_from is not None else True),
+        (
+            Collection.start_date >= start_date_from
+            if start_date_from is not None
+            else True
+        ),
         (Collection.start_date <= start_date_to if start_date_to is not None else True),
         (Collection.end_date >= end_date_from if end_date_from is not None else True),
         (Collection.end_date <= end_date_to if end_date_to is not None else True),
         (Collection.status == status if status is not None else True),
     )
-    
-    logger.logger.info(f'Handling collections query: {query}')
+
+    logger.logger.info(f"Handling collections query: {query}")
 
     results = await session.exec(query)
     return results.all()
 
 
-async def get_by_id(session: SQL.AsyncSession, collection_id: int) -> Optional[Collection]:
+async def get_by_id(
+    session: SQL.AsyncSession, collection_id: int
+) -> Optional[Collection]:
     query = select(Collection).where(Collection.id == collection_id)
     result = await session.exec(query)
-    
+
     return result.first()
 
 
@@ -51,7 +57,9 @@ async def create(session: SQL.AsyncSession, collection: Collection) -> Collectio
         raise e
 
 
-async def update(session: SQL.AsyncSession, collection_id: int, updated_collection: Collection) -> Optional[Collection]:
+async def update(
+    session: SQL.AsyncSession, collection_id: int, updated_collection: Collection
+) -> Optional[Collection]:
     try:
         db_collection = await get_by_id(session, collection_id)
         if not db_collection:
@@ -75,7 +83,7 @@ async def cancel(session: SQL.AsyncSession, collection_id: int) -> Optional[Coll
         db_collection = await get_by_id(session, collection_id)
         if not db_collection:
             return None
-            
+
         db_collection.status = CANCELLED
 
         session.add(db_collection)

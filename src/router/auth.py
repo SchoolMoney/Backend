@@ -74,4 +74,11 @@ async def update_identity(
     ).first()
 
     DB_user.username = request.username
-    await sql_session.commit()
+    try:
+        await sql_session.commit()
+    except Exception as e:
+        if e.orig.pgcode == "23505":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username already exists",
+            )
