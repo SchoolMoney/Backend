@@ -5,10 +5,11 @@ import src.SQL as SQL
 from src.Model.ChildModel import ChildCreate, ChildBatchUpdate, ChildUpdate
 from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import Child
+from src.SQL.Tables.People import Parenthood
 from src.Service import Auth
-from src.repository import child_repository
+from src.repository import child_repository, parenthood_repository
 
-child_router = APIRouter(prefix="/child", tags=["child"])
+child_router = APIRouter()
 
 
 @child_router.get("/", status_code=status.HTTP_200_OK, response_model=List[Child])
@@ -18,11 +19,12 @@ async def get_children(
         skip: int = 0,
         limit: int = 100,
         ids: Optional[List[int]] = Query(None),
-        group_ids: Optional[List[int]] = Query(None)
+        group_ids: Optional[List[int]] = Query(None),
+        parent_ids: Optional[List[int]] = Query(None),
 ) -> Sequence[Child]:
     """Get multiple children. Can filter by IDs, group_id or get all with pagination."""
     try:
-        return await child_repository.get_all(sql_session, skip, limit, ids, group_ids)
+        return await child_repository.get_all(sql_session, skip, limit, ids, group_ids, parent_ids)
     except HTTPException:
         raise
     except Exception:
@@ -66,7 +68,12 @@ async def create_child(
     try:
         # Create Child object from validated data
         child = Child(**child_data.model_dump())
-        return await child_repository.create(sql_session, child)
+        created_child = await child_repository.create(sql_session, child)
+        
+        parenthood = Parenthood(parent_id=child_data.parent_id, child_id=created_child.id)
+        await parenthood_repository.create(sql_session, parenthood)
+        
+        return created_child
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

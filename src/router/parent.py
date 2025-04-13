@@ -9,10 +9,10 @@ from src.Service.IBAN_generator.iban_db_service import create_bank_account
 from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables.People import Parent
 
-parent = APIRouter()
+parent_router = APIRouter()
 
 
-@parent.post("/", response_model=SQL.Tables.People.Parent)
+@parent_router.post("/", response_model=SQL.Tables.People.Parent)
 async def create(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
@@ -44,7 +44,7 @@ async def create(
     return parent_record
 
 
-@parent.put("/", response_model=SQL.Tables.People.Parent)
+@parent_router.put("/", response_model=SQL.Tables.People.Parent)
 async def update(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
@@ -71,7 +71,7 @@ async def update(
     return modified_record
 
 
-@parent.get("/", response_model=List[Parent])
+@parent_router.get("/", response_model=List[Parent])
 async def get(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
