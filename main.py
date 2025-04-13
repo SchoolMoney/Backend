@@ -34,7 +34,7 @@ app.add_middleware(
 
 app.include_router(
     router.child_router,
-    prefix=f"{config.API_PREFIX}/user",
+    prefix=f"{config.API_PREFIX}/child",
     tags=["child"]
 )
 app.include_router(
@@ -49,7 +49,7 @@ app.include_router(
 )
 
 app.include_router(
-    router.parent_profile,
+    router.parent_router,
     prefix=f"{config.API_PREFIX}/parent",
     tags=["parent"],
 )

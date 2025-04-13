@@ -10,6 +10,7 @@ class ChildCreate(BaseModel):
     surname: str
     birth_date: datetime_date
     group_id: int
+    parent_id: int
 
     model_config = ConfigDict(extra="forbid")
 

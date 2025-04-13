@@ -1,14 +1,18 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends, status, HTTPException
+from typing import Annotated, List
+from fastapi import APIRouter, Depends, logger, status, HTTPException
+from sqlmodel import Sequence
+from src.repository import parent_repository
 from src.Model.PeopleModel import ParentModel
 import src.SQL as SQL
 import src.Service.Auth as Auth
 from src.Service.IBAN_generator.iban_db_service import create_bank_account
+from src.SQL.Enum.Privilege import ADMIN_USER
+from src.SQL.Tables.People import Parent
 
-parent_profile = APIRouter()
+parent_router = APIRouter()
 
 
-@parent_profile.post("/parent-profile", response_model=SQL.Tables.People.Parent)
+@parent_router.post("/", response_model=SQL.Tables.People.Parent)
 async def create(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
@@ -40,7 +44,7 @@ async def create(
     return parent_record
 
 
-@parent_profile.put("/parent-profile", response_model=SQL.Tables.People.Parent)
+@parent_router.put("/", response_model=SQL.Tables.People.Parent)
 async def update(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
@@ -67,22 +71,16 @@ async def update(
     return modified_record
 
 
-@parent_profile.get("/parent-profile", response_model=SQL.Tables.People.Parent)
+@parent_router.get("/", response_model=List[Parent])
 async def get(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
-) -> SQL.Tables.People.Parent:
-    if (parent_record := (await sql_session.exec(
-            SQL.select(SQL.Tables.People.Parent).filter(
-                SQL.Tables.People.Parent.account_id == user.user_id))).first()) is None:
-        raise HTTPException(
-            status_code=status.HTTP_204_NO_CONTENT,
-            detail="You are not a parent",
-        )
-
+) -> Sequence[Parent]:
     try:
-        await sql_session.commit()
+        return await parent_repository.get_all(sql_session)
     except Exception as e:
-        raise e
-
-    return parent_record
+        logger.logger.error(f"Error retrieving parents: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve parents"
+        )

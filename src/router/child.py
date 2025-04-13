@@ -5,10 +5,11 @@ import src.SQL as SQL
 from src.Model.ChildModel import ChildCreate, ChildBatchUpdate, ChildUpdate
 from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import Child
+from src.SQL.Tables.People import Parenthood
 from src.Service import Auth
-from src.repository import child_repository
+from src.repository import child_repository, parenthood_repository, parent_repository
 
-child_router = APIRouter(prefix="/child", tags=["child"])
+child_router = APIRouter()
 
 
 @child_router.get("/", status_code=status.HTTP_200_OK, response_model=List[Child])
@@ -18,11 +19,12 @@ async def get_children(
         skip: int = 0,
         limit: int = 100,
         ids: Optional[List[int]] = Query(None),
-        group_ids: Optional[List[int]] = Query(None)
+        group_ids: Optional[List[int]] = Query(None),
+        parent_ids: Optional[List[int]] = Query(None),
 ) -> Sequence[Child]:
     """Get multiple children. Can filter by IDs, group_id or get all with pagination."""
     try:
-        return await child_repository.get_all(sql_session, skip, limit, ids, group_ids)
+        return await child_repository.get_all(sql_session, skip, limit, ids, group_ids, parent_ids)
     except HTTPException:
         raise
     except Exception:
@@ -56,6 +58,24 @@ async def get_child(
         )
 
 
+@child_router.get("/user/", status_code=status.HTTP_200_OK, response_model=List[Child])
+async def get_user_children(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+) -> Sequence[Child]:
+    """Get logged user's children"""
+    try:
+        user_parent_profile = await parent_repository.get_by_user_account(sql_session, user.user_id)
+        return await child_repository.get_all(sql_session, parent_ids=[user_parent_profile.id])
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve user's children"
+        )
+
+
 @child_router.post("/", response_model=Child, status_code=status.HTTP_201_CREATED)
 async def create_child(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
@@ -66,7 +86,12 @@ async def create_child(
     try:
         # Create Child object from validated data
         child = Child(**child_data.model_dump())
-        return await child_repository.create(sql_session, child)
+        created_child = await child_repository.create(sql_session, child)
+        
+        parenthood = Parenthood(parent_id=child_data.parent_id, child_id=created_child.id)
+        await parenthood_repository.create(sql_session, parenthood)
+        
+        return created_child
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

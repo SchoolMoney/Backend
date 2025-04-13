@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 
 from pydantic import BaseModel
 
+
 class ParentModel(BaseModel):
     name: str
     surname: str

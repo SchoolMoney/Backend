@@ -1,6 +1,7 @@
-from typing import List, Optional, Sequence
-from sqlmodel import col, select
+from typing import List, Optional
+from sqlmodel import Sequence, col, select
 
+from src.SQL.Tables.People import Parenthood
 import src.SQL as SQL
 from src.SQL.Tables import Child
 
@@ -18,11 +19,12 @@ async def create(session: SQL.AsyncSession, child: Child) -> Child:
 
 
 async def get_all(
-        session: SQL.AsyncSession,
-        skip: int = 0,
-        limit: int = 100,
-        ids: Optional[List[int]] = None,
-        group_ids: Optional[List[int]] = None
+    session: SQL.AsyncSession,
+    skip: int = 0,
+    limit: int = 100,
+    ids: Optional[List[int]] = None,
+    group_ids: Optional[List[int]] = None,
+    parent_ids: Optional[List[int]] = None,
 ) -> Sequence[Child]:
     """Get multiple children with optional filtering"""
     query = select(Child)
@@ -32,6 +34,9 @@ async def get_all(
 
     if group_ids:
         query = query.where(col(Child.group_id).in_(group_ids))
+        
+    if parent_ids:
+        query = query.join(Parenthood, Child.id == Parenthood.child_id).where(col(Parenthood.parent_id).in_(parent_ids))
 
     query = query.offset(skip).limit(limit)
     results = await session.exec(query)
@@ -108,3 +113,5 @@ async def delete(session: SQL.AsyncSession, child_id: int) -> bool:
     except Exception as e:
         await session.rollback()
         raise e
+      
+
