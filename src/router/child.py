@@ -7,7 +7,7 @@ from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import Child
 from src.SQL.Tables.People import Parenthood
 from src.Service import Auth
-from src.repository import child_repository, parenthood_repository
+from src.repository import child_repository, parenthood_repository, parent_repository
 
 child_router = APIRouter()
 
@@ -55,6 +55,24 @@ async def get_child(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve child"
+        )
+
+
+@child_router.get("/user/", status_code=status.HTTP_200_OK, response_model=List[Child])
+async def get_user_children(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+) -> Sequence[Child]:
+    """Get logged user's children"""
+    try:
+        user_parent_profile = await parent_repository.get_by_user_account(sql_session, user.user_id)
+        return await child_repository.get_all(sql_session, parent_ids=[user_parent_profile.id])
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve user's children"
         )
 
 
