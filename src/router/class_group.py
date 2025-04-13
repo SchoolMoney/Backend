@@ -35,6 +35,21 @@ async def get_class_groups(
         )
 
 
+@class_group_router.get("/list-class-groups", status_code=status.HTTP_200_OK)
+async def get_user_class_groups(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+) -> Sequence[ClassGroup]:
+    """Get all user class groups which he belongs to"""
+    query_result = await get_by_belonging_user(sql_session, user.user_id)
+    if not query_result:
+        raise HTTPException(
+            status_code=status.HTTP_204_NO_CONTENT,
+            detail="You have no children in any class"
+        )
+    return query_result
+
+
 @class_group_router.get("/{class_group_id}", status_code=status.HTTP_200_OK, response_model=ClassGroup)
 async def get_class_group(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
@@ -75,21 +90,6 @@ async def create_class_group(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create class group"
         )
-
-
-@class_group_router.get("/list-class-groups", status_code=status.HTTP_200_OK)
-async def get_user_class_groups(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
-) -> Sequence[ClassGroup]:
-    """Get all user class groups which he belongs to"""
-    query_result = await get_by_belonging_user(sql_session, user.user_id)
-    if not query_result:
-        raise HTTPException(
-            status_code=status.HTTP_204_NO_CONTENT,
-            detail="You have no children in any class"
-        )
-    return query_result
 
 
 @class_group_router.put("/{class_group_id}", status_code=status.HTTP_200_OK, response_model=ClassGroup)
@@ -140,7 +140,7 @@ async def delete_class_group(
         )
 
 
-@class_group_router.get("/class-view", status_code=status.HTTP_200_OK)
+@class_group_router.get("/class-view/{class_group_id}", status_code=status.HTTP_200_OK)
 async def get_class_view(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         class_group_id: int,
@@ -150,7 +150,6 @@ async def get_class_view(
         )
 ):
     """Get a specific class view by ID"""
-
     class_view_data = await class_view_operations.collect_class_view_data(
         class_group_id,
         int(collection_status),
