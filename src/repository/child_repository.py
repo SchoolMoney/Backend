@@ -4,6 +4,7 @@ from sqlmodel import Sequence, col, select
 from src.SQL.Tables.People import Parenthood
 import src.SQL as SQL
 from src.SQL.Tables import Child
+from src.repository import parenthood_repository
 
 
 async def create(session: SQL.AsyncSession, child: Child) -> Child:
@@ -106,7 +107,11 @@ async def delete(session: SQL.AsyncSession, child_id: int) -> bool:
         db_child = await get_by_id(session, child_id)
         if not db_child:
             return False
-
+          
+        db_parenthood = await parenthood_repository.get_by_child_id(session, child_id)
+        await session.delete(db_parenthood)
+        await session.commit()
+        
         await session.delete(db_child)
         await session.commit()
         return True
