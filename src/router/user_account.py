@@ -1,8 +1,10 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, status, HTTPException
-from src.Model.UserAccount import RegisterUser, User
+from src.Model.UserAccount import RegisterUser, UpdateUserAccountStatus, User
 import src.SQL as SQL
 import src.Service.Auth as Auth
+from src.SQL.Enum.Privilege import ADMIN_USER
+from src.repository import parent_repository, account_repository
 
 user_router = APIRouter()
 
@@ -39,3 +41,29 @@ async def me(
             )
         )
     ).first()
+
+
+@user_router.get('/parent/{parent_id}', response_model=User)
+async def get_user_by_parent(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    parent_id: int,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
+) -> SQL.Tables.UserAccount:
+    """
+    Returns information about user by parent ID.
+    """
+    user_parent_profile = await parent_repository.get_by_id(sql_session, parent_id)
+    return await account_repository.get_by_user(sql_session, user_parent_profile.account_id)
+
+
+@user_router.put('/parent/{parent_id}')
+async def update_user_parent_status(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    parent_id: int,
+    request: UpdateUserAccountStatus,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
+):
+    user_parent_profile = await parent_repository.get_by_id(sql_session, parent_id)
+    user = await account_repository.get_by_user(sql_session, user_parent_profile.account_id)
+    user.status = request.status
+    await sql_session.commit()
