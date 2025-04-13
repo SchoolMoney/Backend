@@ -8,6 +8,7 @@ import src.Service.Auth as Auth
 from src.Service.IBAN_generator.iban_db_service import create_bank_account
 from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables.People import Parent
+import src.Model.UserAccount as UserModel
 
 parent_router = APIRouter()
 
@@ -83,4 +84,36 @@ async def get(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve parents"
+        )
+
+
+@parent_router.get("/user", response_model=SQL.Tables.People.Parent)
+async def get_by_logged_user(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
+) -> SQL.Tables.People.Parent:
+    try:
+        return await parent_repository.get_by_user_account(sql_session, user.user_id)
+    except Exception as e:
+        logger.logger.error(f"Error retrieving user's parent profile: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve user's parent profile"
+        )
+
+
+@parent_router.put("/user")
+async def update_logged_user_profile(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    parent_profile: UserModel.UpdateParentProfile,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
+):
+    try:
+        updated_profile = SQL.Tables.Parent(**parent_profile.model_dump())
+        await parent_repository.update_by_user(sql_session, updated_profile, user.user_id)
+    except Exception as e:
+        logger.logger.error(f"Error updating user's parent profile: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to updating user's parent profile"
         )
