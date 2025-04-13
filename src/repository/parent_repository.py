@@ -19,6 +19,13 @@ async def get_all(session: SQL.AsyncSession) -> Sequence[Parent]:
     return result.all()
   
 
+async def get_by_id(session: SQL.AsyncSession, parent_id: int) -> Optional[Parent]:
+    query = select(Parent).where(Parent.id == parent_id)
+    
+    result = await session.exec(query)
+    return result.first()
+  
+
 async def update_by_user(session: SQL.AsyncSession, updated_profile: Parent, account_id: int):
     try:
         user_parent_profile = await get_by_user_account(session, account_id)

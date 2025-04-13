@@ -4,6 +4,7 @@ import src.Model.UserAccount as UserModel
 import src.SQL as SQL
 from .jwt import generate_access_token
 from .helpers import get_user_account
+from src.SQL.Enum.AccountStatus import ENABLED
 
 
 async def user_login(
@@ -20,6 +21,11 @@ async def user_login(
     if user is None or user.password != login_form.password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User is unauthorized"
+        )
+
+    if user.status != ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="User login is locked. Please contact administrator"
         )
 
     return generate_access_token(user)

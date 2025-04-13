@@ -18,6 +18,4 @@ async def get_user_account(
         await sql_session.exec(SQL.select(SQL.Tables.UserAccount).filter(*filters))
     ).first()
 
-    if user is None or user.status != AccountStatus.ENABLED:
-        return None
     return user
