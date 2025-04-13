@@ -48,3 +48,12 @@ class ChangePassword(BaseModel):
 
 class UpdateIdentity(BaseModel):
     username: str
+
+
+class UpdateParentProfile(BaseModel):
+    name: str
+    surname: str
+    phone: str
+    city: str
+    street: str
+    house_number: str
