@@ -1,5 +1,5 @@
 from typing import Annotated, List, Optional, Sequence
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, logger, status
 
 import src.SQL as SQL
 from src.Model.ChildModel import ChildCreate, ChildBatchUpdate, ChildUpdate
@@ -106,9 +106,9 @@ async def create_child(
 
 @child_router.put("/batch", status_code=status.HTTP_200_OK, response_model=List[Child])
 async def update_many_children(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        children_data: List[ChildBatchUpdate],
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    children_data: List[ChildBatchUpdate],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> List[Child]:
     """Update multiple children at once"""
     try:
@@ -131,10 +131,10 @@ async def update_many_children(
 
 @child_router.put("/{child_id}", status_code=status.HTTP_200_OK, response_model=Child)
 async def update_child(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        child_id: int,
-        updated_data: ChildUpdate,
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    child_id: int,
+    updated_data: ChildUpdate,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Child:
     """Update an existing child"""
     try:
@@ -159,9 +159,9 @@ async def update_child(
 
 @child_router.delete("/{child_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_child(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
-        child_id: int,
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    child_id: int,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> None:
     """Delete a child"""
     try:
@@ -173,7 +173,8 @@ async def delete_child(
             )
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.logger.error(f"Error retrieving collections: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete child"
