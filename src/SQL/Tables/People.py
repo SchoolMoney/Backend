@@ -49,7 +49,7 @@ class Parenthood(SQLModel, table=True):
 class Parent(SQLModel, ParentModel, table=True):
     """
     Parent is a person who is responsible for child. It can be associated with more than one child via Parenthood table.
-    Parent must be associated with user account.
+    Parent must be associated with user account and bank account.
     """
 
     __tablename__ = "parent"

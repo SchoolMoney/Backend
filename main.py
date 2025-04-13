@@ -49,7 +49,7 @@ app.include_router(
 )
 
 app.include_router(
-    router.parent_profile,
+    router.parent,
     prefix=f"{config.API_PREFIX}/parent",
     tags=["parent"],
 )
