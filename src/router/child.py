@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, logger, status
 import src.SQL as SQL
 from src.Model.ChildModel import ChildCreate, ChildBatchUpdate, ChildUpdate
 from src.SQL.Enum.Privilege import ADMIN_USER
-from src.SQL.Tables import Child
+from src.SQL.Tables import Child, ParentGroupRole
 from src.SQL.Tables.People import Parenthood
 from src.Service import Auth
-from src.repository import child_repository, parenthood_repository, parent_repository
+from src.repository import child_repository, parenthood_repository, parent_repository, parent_group_role_repository
 
 child_router = APIRouter()
 
@@ -90,6 +90,11 @@ async def create_child(
         
         parenthood = Parenthood(parent_id=child_data.parent_id, child_id=created_child.id)
         await parenthood_repository.create(sql_session, parenthood)
+        
+        parent_group_role = await parent_group_role_repository.get(sql_session, child_data.group_id, child_data.parent_id)
+        if not parent_group_role:
+            parent_group_role = ParentGroupRole(parent_id=child_data.parent_id, class_group_id=child_data.group_id)
+            await parent_group_role_repository.create(sql_session, parent_group_role)
         
         return created_child
     except ValueError as e:
