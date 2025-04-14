@@ -10,3 +10,7 @@ class UpdateClassGroup(BaseModel):
 class AddClassGroup(BaseModel):
     name: str
     description: str
+
+
+class ChangeClassGroupCashier(BaseModel):
+    parent_id: int

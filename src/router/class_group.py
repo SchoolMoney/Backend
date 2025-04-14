@@ -2,7 +2,7 @@ from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.Service.ClassGroup import class_group_service
-from src.Model.ClassGroup import AddClassGroup, UpdateClassGroup
+from src.Model.ClassGroup import AddClassGroup, UpdateClassGroup, ChangeClassGroupCashier
 import src.SQL as SQL
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
@@ -114,6 +114,24 @@ async def update_class_group(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update class group"
+        )
+
+
+@class_group_router.put("/{class_group_id}/cashier", status_code=status.HTTP_204_NO_CONTENT)
+async def change_class_group_cashier(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    class_group_id: int,
+    request: ChangeClassGroupCashier,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+):
+    try:            
+        await class_group_service.change_cashier(sql_session, class_group_id, request)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update class group cashier"
         )
 
 
