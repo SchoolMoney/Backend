@@ -23,11 +23,17 @@ async def get(
     start_date_to: Optional[date] = Query(None),
     end_date_from: Optional[date] = Query(None),
     end_date_to: Optional[date] = Query(None),
-    status: Optional[CollectionStatusEnum] = Query(None),
+    collection_status: Optional[CollectionStatusEnum] = Query(None),
 ) -> Sequence[Collection]:
     try:
         return await collection_repository.get(
-            sql_session, name, start_date_from, start_date_to, end_date_from, end_date_to, status
+            sql_session, user.user_privilege, user.user_id, name, start_date_from, start_date_to, end_date_from, end_date_to, collection_status
+        )
+    except ValueError as e:
+        logger.logger.error(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
     except Exception as e:
         logger.logger.error(f"Error retrieving collections: {e}")
