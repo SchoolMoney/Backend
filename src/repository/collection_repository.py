@@ -4,32 +4,62 @@ from fastapi import logger
 from sqlmodel import col, select
 
 import src.SQL as SQL
-from src.SQL.Tables import Collection
+from src.Model.UserAccountPrivilegeEnum import UserAccountPrivilegeEnum
+from src.SQL.Tables import Collection, ClassGroup, ParentGroupRole
+from src.SQL.Tables.People import Parent, UserAccount
 import src.SQL.Tables as CollectionStatusEnum
 from src.SQL.Enum.CollectionStatus import CANCELLED
 
 
 async def get(
     session: SQL.AsyncSession,
+    requester_privilege: int,
+    requester_id: Optional[int] = None,
     name: Optional[str] = None,
     start_date_from: Optional[datetime] = None,
     start_date_to: Optional[datetime] = None,
     end_date_from: Optional[datetime] = None,
     end_date_to: Optional[datetime] = None,
     status: Optional[CollectionStatusEnum] = None,
+
 ) -> Sequence[Collection]:
-    query = select(Collection).where(
-        (Collection.name == name if name is not None else True),
-        (
-            Collection.start_date >= start_date_from
-            if start_date_from is not None
-            else True
-        ),
-        (Collection.start_date <= start_date_to if start_date_to is not None else True),
-        (Collection.end_date >= end_date_from if end_date_from is not None else True),
-        (Collection.end_date <= end_date_to if end_date_to is not None else True),
-        (Collection.status == status if status is not None else True),
-    )
+    if requester_privilege == UserAccountPrivilegeEnum.ADMIN_USER:
+        query = select(Collection).where(
+            (Collection.name == name if name is not None else True),
+            (
+                Collection.start_date >= start_date_from
+                if start_date_from is not None
+                else True
+            ),
+            (Collection.start_date <= start_date_to if start_date_to is not None else True),
+            (Collection.end_date >= end_date_from if end_date_from is not None else True),
+            (Collection.end_date <= end_date_to if end_date_to is not None else True),
+            (Collection.status == status if status is not None else True),
+        )
+    elif requester_privilege != UserAccountPrivilegeEnum.ADMIN_USER and requester_id is None:
+        raise ValueError("When user is not an admin user request id is needed to be passed as parameter")
+    else:
+        query = select(Collection).join(
+            ClassGroup, ClassGroup.id == Collection.class_group_id
+        ).join(
+            ParentGroupRole, ParentGroupRole.class_group_id == ClassGroup.id
+        ).join(
+           Parent, Parent.id == ParentGroupRole.parent_id
+        ).join(
+            UserAccount, UserAccount.id == Parent.account_id
+        ).where(
+            (Collection.name == name if name is not None else True),
+            (
+                Collection.start_date >= start_date_from
+                if start_date_from is not None
+                else True
+            ),
+            (Collection.start_date <= start_date_to if start_date_to is not None else True),
+            (Collection.end_date >= end_date_from if end_date_from is not None else True),
+            (Collection.end_date <= end_date_to if end_date_to is not None else True),
+            (Collection.status == status if status is not None else True),
+            UserAccount.id == requester_id
+        )
 
     logger.logger.info(f"Handling collections query: {query}")
 
