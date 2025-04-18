@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 import bcrypt
 from src.Model.UserAccountStatusEnum import UserAccountStatusEnum
+from src.Model.UserAccountPrivilegeEnum import UserAccountPrivilegeEnum
 from src.SQL.Enum.AccountStatus import ENABLED
 from src.SQL.Enum.Privilege import STANDARD_USER
 from src.config import PASSWORD_HASH_SALT
@@ -62,3 +63,6 @@ class UpdateParentProfile(BaseModel):
     
 class UpdateUserAccountStatus(BaseModel):
     status: UserAccountStatusEnum
+
+class UpdateUserAccountPrivilege(BaseModel):
+    privilege: UserAccountPrivilegeEnum
