@@ -18,6 +18,7 @@ class CollectionModel(BaseModel):
     class_group_id: int
     bank_account_id: int
     owner_id: int
+    withdrawn_money: float
 
     class Config:
         orm_mode = True
