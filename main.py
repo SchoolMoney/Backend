@@ -72,6 +72,12 @@ app.include_router(
     tags=["bank_account"],
 )
 
+app.include_router(
+    router.collection_documents_router,
+    prefix=f"{config.API_PREFIX}/collection_documents",
+    tags=["Collection documents"],
+)
+
 if __name__ == "__main__":
     uvicorn.run(
         app,
