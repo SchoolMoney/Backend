@@ -43,6 +43,9 @@ async def insert_users(session: AsyncSession) -> None:
                 )
             ).first()
         ) is not None:
+            parent = (await session.exec(select(Parent).filter(Parent.name == DEFAULT_ADMIN_USERNAME,
+                                                     Parent.surname == DEFAULT_ADMIN_USERNAME))).first()
+            await session.delete(parent)
             await session.delete(existing_account)
             await session.commit()
         session.add(user)
