@@ -2,14 +2,15 @@ from datetime import date
 from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status, logger
 
-from src.Model.CollectionModel import CreateCollection
+from src.Model.CollectionModel import CreateCollection, CollectionOperationList
 import src.SQL as SQL
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
-from src.SQL.Tables import Collection
+from src.SQL.Tables import Collection, Parent
 from src.Service import Auth
 from src.Service.Collection import collection_service
 from src.repository import collection_repository
+from src.repository.collection_repository import get_collection_operations_list_in_collection
 
 collection_router = APIRouter()
 
@@ -66,7 +67,9 @@ async def create(
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Collection:
     try:
-        return await collection_service.create(sql_session, user.user_id, collection)
+        parent_id = (await sql_session.exec(SQL.select(Parent.id).where(Parent.account_id == user.user_id))).first()
+        print(parent_id)
+        return await collection_service.create(sql_session, parent_id, collection)
     except Exception as e:
         logger.logger.error(f"Error creating collection: {e}")
         raise HTTPException(
@@ -92,6 +95,35 @@ async def update(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update collection"
         )
+
+
+@collection_router.get("/children_list/{collection_id}", status_code=status.HTTP_200_OK)
+async def collection_children_list(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+        collection_id: int,
+):
+    try:
+        operation_list = await get_collection_operations_list_in_collection(sql_session, collection_id)
+        result_list = []
+        for operation in operation_list:
+            single_operation = CollectionOperationList(
+                child_id=operation[0],
+                requester_name=operation[1],
+                requester_surname=operation[2],
+                operation=operation[3],
+            )
+            result_list.append(single_operation)
+    except Exception as e:
+        logger.logger.error(f"Error getting children status list: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get children status list"
+        )
+
+    if len(result_list)==0:
+        raise HTTPException(status_code=204, detail="No operations found")
+    return result_list
 
 
 @collection_router.put("/{collection_id}/cancel", status_code=status.HTTP_200_OK, response_model=Collection)
