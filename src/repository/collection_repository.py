@@ -6,8 +6,9 @@ from sqlmodel import col, select
 import src.SQL as SQL
 from src.Model.UserAccountPrivilegeEnum import UserAccountPrivilegeEnum
 from src.SQL.Tables import Collection, ClassGroup, ParentGroupRole
-from src.SQL.Tables.People import Parent, UserAccount
+from src.SQL.Tables.People import Parent, UserAccount, Child
 import src.SQL.Tables as CollectionStatusEnum
+from src.SQL.Tables.Collection import CollectionOperation
 from src.SQL.Enum.CollectionStatus import CANCELLED
 
 
@@ -74,6 +75,34 @@ async def get_by_id(
     result = await session.exec(query)
 
     return result.first()
+
+async def get_children_status_list_in_collection(
+    session: SQL.AsyncSession,
+    collection_id: int
+):
+    query = select(Child.id,
+                   Parent.name,
+                   Parent.surname,
+                   CollectionOperation.operation_type
+    ).select_from(Collection).join(
+        CollectionOperation, Collection.id == CollectionOperation.collection_id
+    ).join(
+        Child, Child.id == CollectionOperation.child_id
+    ).join(
+        Parent, Parent.id == CollectionOperation.requester_id
+    ).filter(
+        Collection.id == collection_id,
+    )
+    try:
+        db_response = await session.exec(query)
+        query_result = db_response.all()
+    except Exception as e:
+        logger.logger.error(f"Failed to get children status list: {e}")
+        raise e
+
+    return query_result
+
+
 
 
 async def create(session: SQL.AsyncSession, collection: Collection) -> Collection:
