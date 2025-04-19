@@ -76,7 +76,7 @@ async def get_by_id(
 
     return result.first()
 
-async def get_children_status_list_in_collection(
+async def get_collection_operations_list_in_collection(
     session: SQL.AsyncSession,
     collection_id: int
 ):
