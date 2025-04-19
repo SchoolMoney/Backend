@@ -36,8 +36,10 @@ class CreateCollection(BaseModel):
     bank_account_id: int
     owner_id: int
 
-class CollectionOperationList(BaseModel):
+class CollectionChildrenList(BaseModel):
     child_id: int
+    child_name: str
+    child_surname: str
     requester_name: str
     requester_surname: str
     operation: int
