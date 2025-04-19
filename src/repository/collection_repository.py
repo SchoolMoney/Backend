@@ -1,15 +1,19 @@
+import asyncio
 from datetime import datetime
 from typing import List, Optional, Sequence
 from fastapi import logger
-from sqlmodel import col, select
+from sqlmodel import select
 
 import src.SQL as SQL
+from src.Model.CollectionModel import CollectionChildrenList
 from src.Model.UserAccountPrivilegeEnum import UserAccountPrivilegeEnum
 from src.SQL.Tables import Collection, ClassGroup, ParentGroupRole
 from src.SQL.Tables.People import Parent, UserAccount, Child
 import src.SQL.Tables as CollectionStatusEnum
 from src.SQL.Tables.Collection import CollectionOperation
 from src.SQL.Enum.CollectionStatus import CANCELLED
+from src.Service.Auth import AuthorizedUser
+import src.repository.collection_documents_repository as collection_documents_repository
 
 
 async def get(
@@ -76,11 +80,14 @@ async def get_by_id(
 
     return result.first()
 
-async def get_collection_operations_list_in_collection(
+async def get_list_of_children_for_collection(
     session: SQL.AsyncSession,
     collection_id: int
-):
+) -> List[CollectionChildrenList]:
+
     query = select(Child.id,
+                   Child.name,
+                   Child.surname,
                    Parent.name,
                    Parent.surname,
                    CollectionOperation.operation_type
@@ -94,13 +101,39 @@ async def get_collection_operations_list_in_collection(
         Collection.id == collection_id,
     )
     try:
-        db_response = await session.exec(query)
-        query_result = db_response.all()
+        query_result: Sequence = (await session.exec(query)).all()
     except Exception as e:
         logger.logger.error(f"Failed to get children status list: {e}")
         raise e
 
-    return query_result
+    result_list = []
+    for operation in query_result:
+        single_operation = CollectionChildrenList(
+            child_id=operation[0],
+            child_name=operation[1],
+            child_surname=operation[2],
+            requester_name=operation[3],
+            requester_surname=operation[4],
+            operation=operation[5],
+        )
+        result_list.append(single_operation)
+
+    return result_list
+
+async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) -> dict:
+    """Collect data for class view by running all queries concurrently"""
+
+    collection, children, documents = await asyncio.gather(
+        get_by_id(await SQL.get_async_session(), collection_id=collection_id),
+        get_list_of_children_for_collection(session= await SQL.get_async_session(), collection_id=collection_id),
+        collection_documents_repository.get(await SQL.get_async_session(), collection_id=collection_id)
+    )
+
+    return {
+        "collection": collection.model_dump(),
+        "children": [child.model_dump() for child in children],
+        "documents": [document.model_dump() for document in documents],
+    }
 
 
 
@@ -167,19 +200,3 @@ async def delete(session: SQL.AsyncSession, collection_id: int) -> bool:
         await session.rollback()
         raise e
 
-async def check_if_user_can_view_collection(session: SQL.AsyncSession, collection_id: int, user_id: int) -> bool:
-    query = select(UserAccount.id).select_from(UserAccount).join(
-        Parent, UserAccount.id == Parent.account_id
-    ).join(
-        ParentGroupRole, Parent.id == ParentGroupRole.parent_id
-    ).join(
-        ClassGroup, ParentGroupRole.class_group_id == ClassGroup.id
-    ).join(
-        Collection, Collection.class_group_id == ClassGroup.id
-    ).where(
-        UserAccount.id == user_id,
-        Collection.id == collection_id
-    )
-
-    result = (await session.exec(query)).first()
-    return result is not None
