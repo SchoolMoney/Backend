@@ -68,7 +68,6 @@ async def create(
 ) -> Collection:
     try:
         parent_id = (await sql_session.exec(SQL.select(Parent.id).where(Parent.account_id == user.user_id))).first()
-        print(parent_id)
         return await collection_service.create(sql_session, parent_id, collection)
     except Exception as e:
         logger.logger.error(f"Error creating collection: {e}")
