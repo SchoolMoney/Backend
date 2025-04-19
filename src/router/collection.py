@@ -97,8 +97,8 @@ async def update(
         )
 
 
-@collection_router.get("/children_list/{collection_id}", status_code=status.HTTP_200_OK)
-async def collection_children_list(
+@collection_router.get("/children_list/{collection_id}", status_code=status.HTTP_200_OK, response_model=List[CollectionOperationList])
+async def collection_operation_list(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
         collection_id: int,
