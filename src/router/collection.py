@@ -1,16 +1,18 @@
+import json
 from datetime import date
 from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status, logger
 
-from src.Model.CollectionModel import CreateCollection, CollectionOperationList
+from src.Model.CollectionModel import CreateCollection, CollectionChildrenList
 import src.SQL as SQL
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
-from src.SQL.Tables import Collection, Parent
+from src.SQL.Tables import Collection, Parent, ParentGroupRole, UserAccount
 from src.Service import Auth
 from src.Service.Collection import collection_service
 from src.repository import collection_repository
-from src.repository.collection_repository import get_collection_operations_list_in_collection
+from src.repository.collection_repository import gather_collection_view_data
+from src.Service.Collection.collection_validator import check_if_user_can_view_collection
 
 collection_router = APIRouter()
 
@@ -96,34 +98,51 @@ async def update(
         )
 
 
-@collection_router.get("/children_list/{collection_id}", status_code=status.HTTP_200_OK, response_model=List[CollectionOperationList])
-async def collection_operation_list(
+@collection_router.get("/collection-view/{collection_id}", status_code=status.HTTP_200_OK, response_model=dict)
+async def collection_view(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
         collection_id: int,
 ):
+    if not await check_if_user_can_view_collection(sql_session, collection_id, user.user_id) and user.user_privilege!=ADMIN_USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN
+        )
     try:
-        operation_list = await get_collection_operations_list_in_collection(sql_session, collection_id)
-        result_list = []
-        for operation in operation_list:
-            single_operation = CollectionOperationList(
-                child_id=operation[0],
-                requester_name=operation[1],
-                requester_surname=operation[2],
-                operation=operation[3],
-            )
-            result_list.append(single_operation)
+        collection_data = await gather_collection_view_data(collection_id, user)
+
+        requester = (await sql_session.exec(SQL.select(
+            Parent.id,
+            Parent.name,
+            Parent.surname,
+            ParentGroupRole.role
+        ).select_from(
+            Collection
+        ).join(
+            ParentGroupRole, ParentGroupRole.class_group_id == Collection.class_group_id
+        ).join(
+            Parent, Parent.id == ParentGroupRole.parent_id
+        ).filter(
+            Parent.account_id == user.user_id,
+            Collection.id == collection_id,
+        )
+        )).first()
+
+        collection_data['requester'] = {
+            'parent_id': requester[0],
+            'name': requester[1],
+            'surname': requester[2],
+            "role": requester[3],
+        }
     except Exception as e:
-        logger.logger.error(f"Error getting children status list: {e}")
+        logger.logger.error(f"Error retrieving collection view: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get children status list"
+            detail="Failed to retrieve collection view"
         )
 
-    if len(result_list)==0:
-        raise HTTPException(status_code=204, detail="No operations found")
-    return result_list
 
+    return collection_data
 
 @collection_router.put("/{collection_id}/cancel", status_code=status.HTTP_200_OK, response_model=Collection)
 async def cancel(
