@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -40,6 +41,7 @@ class CollectionChildrenList(BaseModel):
     child_id: int
     child_name: str
     child_surname: str
-    requester_name: str
-    requester_surname: str
-    operation: int
+    requester_name: Optional[str] = None
+    requester_surname: Optional[str] = None
+    operation: Optional[int] = None
+    operation_date: Optional[date] = None

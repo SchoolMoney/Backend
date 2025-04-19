@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime
 from typing import List, Optional, Sequence
 from fastapi import logger
-from sqlmodel import select
+from sqlmodel import select, and_, func
 
 import src.SQL as SQL
 from src.Model.CollectionModel import CollectionChildrenList
@@ -84,21 +84,40 @@ async def get_list_of_children_for_collection(
     session: SQL.AsyncSession,
     collection_id: int
 ) -> List[CollectionChildrenList]:
+    latest_ops = select(
+        CollectionOperation.child_id,
+        CollectionOperation.collection_id,
+        func.max(CollectionOperation.operation_date).label("latest_date")
+    ).group_by(
+        CollectionOperation.child_id,
+        CollectionOperation.collection_id
+    ).alias("latest_ops")
 
-    query = select(Child.id,
-                   Child.name,
-                   Child.surname,
-                   Parent.name,
-                   Parent.surname,
-                   CollectionOperation.operation_type
-    ).select_from(Collection).join(
-        CollectionOperation, Collection.id == CollectionOperation.collection_id
+    query = select(
+        Child.id,
+        Child.name,
+        Child.surname,
+        Parent.name.label("parent_name"),
+        Parent.surname.label("parent_surname"),
+        CollectionOperation.operation_type,
+        CollectionOperation.operation_date
     ).join(
-        Child, Child.id == CollectionOperation.child_id
+        ClassGroup, Child.group_id == ClassGroup.id
     ).join(
+        Collection, Collection.class_group_id == ClassGroup.id
+    ).outerjoin(
+        latest_ops,
+        (latest_ops.c.child_id == Child.id) &
+        (latest_ops.c.collection_id == Collection.id)
+    ).outerjoin(
+        CollectionOperation,
+        (CollectionOperation.child_id == latest_ops.c.child_id) &
+        (CollectionOperation.collection_id == latest_ops.c.collection_id) &
+        (CollectionOperation.operation_date == latest_ops.c.latest_date)
+    ).outerjoin(
         Parent, Parent.id == CollectionOperation.requester_id
-    ).filter(
-        Collection.id == collection_id,
+    ).where(
+        Collection.id == collection_id
     )
     try:
         query_result: Sequence = (await session.exec(query)).all()
