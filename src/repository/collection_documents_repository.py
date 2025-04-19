@@ -8,7 +8,7 @@ from src.SQL import AsyncSession, select
 from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables.Collection import CollectionDocuments
 from src.Service.Auth import AuthorizedUser
-from src.repository.collection_repository import check_if_user_can_view_collection
+from src.Service.Collection.collection_validator import check_if_user_can_view_collection
 
 
 async def create(session: AsyncSession, collection_doc:CreateCollectionDocument) -> CollectionDocument:
