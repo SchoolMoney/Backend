@@ -6,3 +6,4 @@ from .auth import auth_router  # noqa: F401
 from .parent import parent_router
 from .collection import collection_router
 from .bank_account import bank_account_router
+from .collection_documents import collection_documents_router
