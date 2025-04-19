@@ -35,3 +35,9 @@ class CreateCollection(BaseModel):
     class_group_id: int
     bank_account_id: int
     owner_id: int
+
+class CollectionOperationList(BaseModel):
+    child_id: int
+    requester_name: str
+    requester_surname: str
+    operation: int
