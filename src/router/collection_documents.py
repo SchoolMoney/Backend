@@ -9,7 +9,7 @@ from src.SQL.Enum.Privilege import ADMIN_USER
 
 from src.Service import Auth
 from src.repository import collection_documents_repository
-from src.repository.collection_repository import check_if_user_can_view_collection
+from src.Service.Collection.collection_validator import check_if_user_can_view_collection
 
 collection_documents_router = APIRouter()
 
