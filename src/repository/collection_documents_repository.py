@@ -3,7 +3,7 @@ from typing import Sequence, Optional
 
 from fastapi import logger, status, HTTPException
 
-from src.Model.CollectionDocument import CreateCollectionDocument, CollectionDocument
+from src.Model.CollectionDocument import CreateCollectionDocumentDB, CollectionDocument, CollectionDocumentMetadata
 from src.SQL import AsyncSession, select
 from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables.Collection import CollectionDocuments
@@ -11,7 +11,7 @@ from src.Service.Auth import AuthorizedUser
 from src.Service.Collection.collection_validator import check_if_user_can_view_collection
 
 
-async def create(session: AsyncSession, collection_doc:CreateCollectionDocument) -> CollectionDocument:
+async def create(session: AsyncSession, collection_doc:CreateCollectionDocumentDB) -> CollectionDocument:
     collection_document = CollectionDocuments(**collection_doc.model_dump())
     try:
         session.add(collection_document)
@@ -43,15 +43,25 @@ async def update(session: AsyncSession, collection_document:CollectionDocument) 
 
 
 
-async def get(session: AsyncSession, collection_id: int) -> Sequence[CollectionDocument]:
+async def get(session: AsyncSession, collection_id: int) -> Sequence[CollectionDocumentMetadata]:
     query = select(CollectionDocuments).filter(CollectionDocuments.collection_id == collection_id)
 
     try:
-        list_of_documents = (await session.exec(query)).all()
+        documents = (await session.exec(query)).all()
+
+        metadata_list = []
+        for doc in documents:
+            metadata_list.append(CollectionDocumentMetadata(
+                document_id=doc.document_id,
+                collection_id=doc.collection_id,
+                document_name=doc.document_name,
+                file_type=doc.file_type
+            ))
+
+        return metadata_list
     except Exception as error:
         logger.logger.error(error)
         raise error
-    return list_of_documents
 
 async def get_by_id(session: AsyncSession, collection_document_id: int) -> Optional[CollectionDocument]:
     query = select(CollectionDocuments).filter(CollectionDocuments.document_id == collection_document_id)
