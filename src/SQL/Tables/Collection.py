@@ -35,7 +35,8 @@ class CollectionDocuments(SQLModel, table=True):
     document_id: int = Field(primary_key=True)
     collection_id: int = Field(foreign_key="collection.id")
     document_name: str
-    document_path: str
+    file_type: str  # Przechowuje rozszerzenie/typ pliku
+    file_data: bytes  # Przechowuje dane binarne pliku
 
 
 class CollectionOperation(SQLModel, table=True):
