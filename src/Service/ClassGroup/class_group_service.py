@@ -50,17 +50,12 @@ async def change_cashier(
         )
         
     cashier_group_role = await parent_group_role_repository.get_cashier(sql_session, class_group_id)
-    if not cashier_group_role:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Parent is not a member of the class"
-        )
+    if cashier_group_role:
+        cashier_group_role.role = ParentRole.MEMBER
+        await sql_session.commit()
+        await sql_session.refresh(cashier_group_role)
         
-    cashier_group_role.role = ParentRole.MEMBER
-    sql_session.commit()
-    sql_session.refresh(cashier_group_role)
-    
     parent_group_role.role = ParentRole.CASHIER
-    sql_session.commit()
-    sql_session.refresh(parent_group_role)
+    await sql_session.commit()
+    await sql_session.refresh(parent_group_role)
     
