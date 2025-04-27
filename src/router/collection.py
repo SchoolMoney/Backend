@@ -229,6 +229,20 @@ async def unsubscribe(
     child_id: int,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> None:
+    parents: list[SQL.Tables.Parent] = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Parent)
+            .join(SQL.Tables.Parenthood)
+            .where(SQL.Tables.Parenthood.child_id == child_id)
+        )
+    ).all()
+
+    if user.user_id not in [parent.id for parent in parents]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to unsubscribe this child",
+        )
+
     try:
         sql_session.add(
             SQL.Tables.CollectionOperation(

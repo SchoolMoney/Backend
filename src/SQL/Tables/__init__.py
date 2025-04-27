@@ -5,7 +5,7 @@ from sqlmodel import SQLModel
 from src.SQL.Tables.Financial import BankAccount, BankAccountOperation  # noqa: F401
 from src.SQL.Tables.Collection import Collection, CollectionOperation  # noqa: F401
 from src.SQL.Tables.OrganizationUnit import ClassGroup, ParentGroupRole  # noqa: F401
-from src.SQL.Tables.People import Parent, Child, UserAccount  # noqa: F401
+from src.SQL.Tables.People import Parent, Child, UserAccount, Parenthood  # noqa: F401
 import src.config as config
 
 
