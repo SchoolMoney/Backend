@@ -199,6 +199,28 @@ async def pay(
     child_id: int,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> None:
+    bank_account: SQL.Tables.BankAccount = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.BankAccount)
+            .join(SQL.Tables.Parent)
+            .where(SQL.Tables.Parent.account_id == user.user_id)
+        )
+    ).first()
+
+    collection: SQL.Tables.Collection = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Collection).where(
+                SQL.Tables.Collection.id == collection_id
+            )
+        )
+    ).first()
+
+    if collection.price > (await bank_account.get_balance(sql_session)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient funds",
+        )
+
     try:
         sql_session.add(
             SQL.Tables.CollectionOperation(
@@ -206,6 +228,16 @@ async def pay(
                 collection_id=collection_id,
                 operation_type=CollectionOperationType.PAY,
                 requester_id=user.user_id,
+            )
+        )
+        sql_session.add(
+            SQL.Tables.BankAccountOperation(
+                operation_date=date.today(),
+                amount=collection.price,
+                title=f"Payment for child {child_id}",
+                description=f"Payment for collection {collection.name}",
+                source_account_id=bank_account.id,
+                destination_account_id=collection.bank_account_id,
             )
         )
         await sql_session.commit()
@@ -235,7 +267,7 @@ async def unsubscribe(
         )
     ).all()
 
-    if user.user_id not in [parent.id for parent in parents]:
+    if user.user_id not in [parent.account_id for parent in parents]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to unsubscribe this child",

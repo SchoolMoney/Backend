@@ -20,8 +20,9 @@ class BankAccount(SQLModel, table=True):
         outgoing_query = select(func.sum(BankAccountOperation.amount)).filter(
             BankAccountOperation.source_account_id == self.id
         )
-        return ((await session.exec(incoming_query)).scalar() or 0.0) - (
-            (await session.exec(outgoing_query)).scalar() or 0.0
+
+        return ((await session.exec(incoming_query)).first() or 0.0) - (
+            (await session.exec(outgoing_query)).first() or 0.0
         )
 
 
