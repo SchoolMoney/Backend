@@ -26,7 +26,6 @@ async def get(
     end_date_from: Optional[datetime] = None,
     end_date_to: Optional[datetime] = None,
     status: Optional[CollectionStatusEnum] = None,
-
 ) -> Sequence[Collection]:
     if requester_privilege == UserAccountPrivilegeEnum.ADMIN_USER:
         query = select(Collection).where(
@@ -36,34 +35,58 @@ async def get(
                 if start_date_from is not None
                 else True
             ),
-            (Collection.start_date <= start_date_to if start_date_to is not None else True),
-            (Collection.end_date >= end_date_from if end_date_from is not None else True),
+            (
+                Collection.start_date <= start_date_to
+                if start_date_to is not None
+                else True
+            ),
+            (
+                Collection.end_date >= end_date_from
+                if end_date_from is not None
+                else True
+            ),
             (Collection.end_date <= end_date_to if end_date_to is not None else True),
             (Collection.status == status if status is not None else True),
         )
-    elif requester_privilege != UserAccountPrivilegeEnum.ADMIN_USER and requester_id is None:
-        raise ValueError("When user is not an admin user request id is needed to be passed as parameter")
+    elif (
+        requester_privilege != UserAccountPrivilegeEnum.ADMIN_USER
+        and requester_id is None
+    ):
+        raise ValueError(
+            "When user is not an admin user request id is needed to be passed as parameter"
+        )
     else:
-        query = select(Collection).join(
-            ClassGroup, ClassGroup.id == Collection.class_group_id
-        ).join(
-            ParentGroupRole, ParentGroupRole.class_group_id == ClassGroup.id
-        ).join(
-           Parent, Parent.id == ParentGroupRole.parent_id
-        ).join(
-            UserAccount, UserAccount.id == Parent.account_id
-        ).where(
-            (Collection.name == name if name is not None else True),
-            (
-                Collection.start_date >= start_date_from
-                if start_date_from is not None
-                else True
-            ),
-            (Collection.start_date <= start_date_to if start_date_to is not None else True),
-            (Collection.end_date >= end_date_from if end_date_from is not None else True),
-            (Collection.end_date <= end_date_to if end_date_to is not None else True),
-            (Collection.status == status if status is not None else True),
-            UserAccount.id == requester_id
+        query = (
+            select(Collection)
+            .join(ClassGroup, ClassGroup.id == Collection.class_group_id)
+            .join(ParentGroupRole, ParentGroupRole.class_group_id == ClassGroup.id)
+            .join(Parent, Parent.id == ParentGroupRole.parent_id)
+            .join(UserAccount, UserAccount.id == Parent.account_id)
+            .where(
+                (Collection.name == name if name is not None else True),
+                (
+                    Collection.start_date >= start_date_from
+                    if start_date_from is not None
+                    else True
+                ),
+                (
+                    Collection.start_date <= start_date_to
+                    if start_date_to is not None
+                    else True
+                ),
+                (
+                    Collection.end_date >= end_date_from
+                    if end_date_from is not None
+                    else True
+                ),
+                (
+                    Collection.end_date <= end_date_to
+                    if end_date_to is not None
+                    else True
+                ),
+                (Collection.status == status if status is not None else True),
+                UserAccount.id == requester_id,
+            )
         )
 
     logger.logger.info(f"Handling collections query: {query}")
@@ -80,44 +103,45 @@ async def get_by_id(
 
     return result.first()
 
-async def get_list_of_children_for_collection(
-    session: SQL.AsyncSession,
-    collection_id: int
-) -> List[CollectionChildrenList]:
-    latest_ops = select(
-        CollectionOperation.child_id,
-        CollectionOperation.collection_id,
-        func.max(CollectionOperation.operation_date).label("latest_date")
-    ).group_by(
-        CollectionOperation.child_id,
-        CollectionOperation.collection_id
-    ).alias("latest_ops")
 
-    query = select(
-        Child.id,
-        Child.name,
-        Child.surname,
-        Parent.name.label("parent_name"),
-        Parent.surname.label("parent_surname"),
-        CollectionOperation.operation_type,
-        CollectionOperation.operation_date
-    ).join(
-        ClassGroup, Child.group_id == ClassGroup.id
-    ).join(
-        Collection, Collection.class_group_id == ClassGroup.id
-    ).outerjoin(
-        latest_ops,
-        (latest_ops.c.child_id == Child.id) &
-        (latest_ops.c.collection_id == Collection.id)
-    ).outerjoin(
-        CollectionOperation,
-        (CollectionOperation.child_id == latest_ops.c.child_id) &
-        (CollectionOperation.collection_id == latest_ops.c.collection_id) &
-        (CollectionOperation.operation_date == latest_ops.c.latest_date)
-    ).outerjoin(
-        Parent, Parent.id == CollectionOperation.requester_id
-    ).where(
-        Collection.id == collection_id
+async def get_list_of_children_for_collection(
+    session: SQL.AsyncSession, collection_id: int
+) -> List[CollectionChildrenList]:
+    latest_ops = (
+        select(
+            CollectionOperation.child_id,
+            CollectionOperation.collection_id,
+            func.max(CollectionOperation.operation_date).label("latest_date"),
+        )
+        .group_by(CollectionOperation.child_id, CollectionOperation.collection_id)
+        .alias("latest_ops")
+    )
+
+    query = (
+        select(
+            Child.id,
+            Child.name,
+            Child.surname,
+            Parent.name.label("parent_name"),
+            Parent.surname.label("parent_surname"),
+            CollectionOperation.operation_type,
+            CollectionOperation.operation_date,
+        )
+        .join(ClassGroup, Child.group_id == ClassGroup.id)
+        .join(Collection, Collection.class_group_id == ClassGroup.id)
+        .outerjoin(
+            latest_ops,
+            (latest_ops.c.child_id == Child.id)
+            & (latest_ops.c.collection_id == Collection.id),
+        )
+        .outerjoin(
+            CollectionOperation,
+            (CollectionOperation.child_id == latest_ops.c.child_id)
+            & (CollectionOperation.collection_id == latest_ops.c.collection_id)
+            & (CollectionOperation.operation_date == latest_ops.c.latest_date),
+        )
+        .outerjoin(Parent, Parent.id == CollectionOperation.requester_id)
+        .where(Collection.id == collection_id)
     )
     try:
         query_result: Sequence = (await session.exec(query)).all()
@@ -134,18 +158,24 @@ async def get_list_of_children_for_collection(
             requester_name=operation[3],
             requester_surname=operation[4],
             operation=operation[5],
+            operation_date=operation[6],
         )
         result_list.append(single_operation)
 
     return result_list
+
 
 async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) -> dict:
     """Collect data for class view by running all queries concurrently"""
 
     collection, children, documents = await asyncio.gather(
         get_by_id(await SQL.get_async_session(), collection_id=collection_id),
-        get_list_of_children_for_collection(session= await SQL.get_async_session(), collection_id=collection_id),
-        collection_documents_repository.get(await SQL.get_async_session(), collection_id=collection_id)
+        get_list_of_children_for_collection(
+            session=await SQL.get_async_session(), collection_id=collection_id
+        ),
+        collection_documents_repository.get(
+            await SQL.get_async_session(), collection_id=collection_id
+        ),
     )
 
     return {
@@ -153,8 +183,6 @@ async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) 
         "children": [child.model_dump() for child in children],
         "documents": [document.model_dump() for document in documents],
     }
-
-
 
 
 async def create(session: SQL.AsyncSession, collection: Collection) -> Collection:
@@ -218,4 +246,3 @@ async def delete(session: SQL.AsyncSession, collection_id: int) -> bool:
     except Exception as e:
         await session.rollback()
         raise e
-
