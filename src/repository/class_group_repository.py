@@ -1,8 +1,10 @@
 from typing import List, Optional, Sequence
-from sqlmodel import col, select
+from fastapi import logger
+from sqlmodel import col, delete, select
+import sqlmodel
 
 import src.SQL as SQL
-from src.SQL.Tables import ClassGroup
+from src.SQL.Tables import ClassGroup, ParentGroupRole, Child
 
 
 async def create(session: SQL.AsyncSession, class_group: ClassGroup) -> ClassGroup:
@@ -63,8 +65,7 @@ async def get_by_belonging_user(session: SQL.AsyncSession, user_id: int) -> Opti
     return class_groups_result
 
 
-async def update(session: SQL.AsyncSession, class_group_id: int, updated_class_group: ClassGroup) -> Optional[
-    ClassGroup]:
+async def update(session: SQL.AsyncSession, class_group_id: int, updated_class_group: ClassGroup) -> Optional[ ClassGroup]:
     """Update an existing class group"""
     try:
         db_class_group = await get_by_id(session, class_group_id)
@@ -82,18 +83,28 @@ async def update(session: SQL.AsyncSession, class_group_id: int, updated_class_g
     except Exception as e:
         await session.rollback()
         raise e
-
-
-async def delete(session: SQL.AsyncSession, class_group_id: int) -> bool:
-    """Delete a class group"""
+      
+      
+async def delete(session: SQL.AsyncSession, class_group_id: int):
+    """Delete a class group and manage related entities."""
     try:
-        db_class_group = await get_by_id(session, class_group_id)
-        if not db_class_group:
-            return False
+        delete_parent_group_roles_query = sqlmodel.delete(ParentGroupRole).where(
+            ParentGroupRole.class_group_id == class_group_id
+        )
+        await session.exec(delete_parent_group_roles_query)
+        
+        childs_query = select(Child).where(Child.group_id == class_group_id)
+        childs = (await session.exec(childs_query)).all()
+        for child in childs:
+            child.group_id = None
+            session.add(child)
 
-        await session.delete(db_class_group)
+        db_class_group = await get_by_id(session, class_group_id)
+        session.delete(db_class_group)
+        
         await session.commit()
-        return True
     except Exception as e:
+        logger.logger.error(e)
         await session.rollback()
         raise e
+
