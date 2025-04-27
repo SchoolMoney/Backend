@@ -19,11 +19,13 @@ class Collection(SQLModel, table=True):
     start_date: date = Field(default=date.today())
     end_date: date | None
     status: int = Field(default=CollectionStatus.OPEN)
-    price: float # price which need to be paid per child
+    price: float  # price which need to be paid per child
     class_group_id: int = Field(foreign_key="class_group.id")
     bank_account_id: int = Field(foreign_key="bank_account.id")
     owner_id: int = Field(foreign_key="parent.id")
-    withdrawn_money: float = Field(default=0) # amount of money withdrawn from the collection bank account by cashier
+    withdrawn_money: float = Field(
+        default=0
+    )  # amount of money withdrawn from the collection bank account by cashier
 
 
 class CollectionDocuments(SQLModel, table=True):
@@ -52,6 +54,6 @@ class CollectionOperation(SQLModel, table=True):
     __tablename__ = "collection_operation"
     child_id: int = Field(primary_key=True, foreign_key="child.id")
     collection_id: int = Field(primary_key=True, foreign_key="collection.id")
-    operation_date: date
+    operation_date: date = Field(default=date.today())
     requester_id: int = Field(foreign_key="parent.id")
     operation_type: int

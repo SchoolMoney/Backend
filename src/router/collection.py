@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status, logger
 
 from src.Model.CollectionModel import CreateCollection, CollectionChildrenList
 import src.SQL as SQL
+from src.SQL.Enum import CollectionOperationType
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import Collection, Parent, ParentGroupRole, UserAccount
@@ -12,12 +13,16 @@ from src.Service import Auth
 from src.Service.Collection import collection_service
 from src.repository import collection_repository
 from src.repository.collection_repository import gather_collection_view_data
-from src.Service.Collection.collection_validator import check_if_user_can_view_collection
+from src.Service.Collection.collection_validator import (
+    check_if_user_can_view_collection,
+)
 
 collection_router = APIRouter()
 
 
-@collection_router.get("", status_code=status.HTTP_200_OK, response_model=List[Collection])
+@collection_router.get(
+    "", status_code=status.HTTP_200_OK, response_model=List[Collection]
+)
 async def get(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
@@ -30,7 +35,15 @@ async def get(
 ) -> Sequence[Collection]:
     try:
         return await collection_repository.get(
-            sql_session, user.user_privilege, user.user_id, name, start_date_from, start_date_to, end_date_from, end_date_to, collection_status
+            sql_session,
+            user.user_privilege,
+            user.user_id,
+            name,
+            start_date_from,
+            start_date_to,
+            end_date_from,
+            end_date_to,
+            collection_status,
         )
     except ValueError as e:
         logger.logger.error(e)
@@ -42,11 +55,13 @@ async def get(
         logger.logger.error(f"Error retrieving collections: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve collections"
+            detail="Failed to retrieve collections",
         )
 
 
-@collection_router.get("/{collection_id}", status_code=status.HTTP_200_OK, response_model=Collection)
+@collection_router.get(
+    "/{collection_id}", status_code=status.HTTP_200_OK, response_model=Collection
+)
 async def get_by_id(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     collection_id: int,
@@ -58,28 +73,36 @@ async def get_by_id(
         logger.logger.error(f"Error retrieving collection by ID {collection_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve collection"
+            detail="Failed to retrieve collection",
         )
 
 
-@collection_router.post("", response_model=Collection, status_code=status.HTTP_201_CREATED)
+@collection_router.post(
+    "", response_model=Collection, status_code=status.HTTP_201_CREATED
+)
 async def create(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     collection: CreateCollection,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Collection:
     try:
-        parent_id = (await sql_session.exec(SQL.select(Parent.id).where(Parent.account_id == user.user_id))).first()
+        parent_id = (
+            await sql_session.exec(
+                SQL.select(Parent.id).where(Parent.account_id == user.user_id)
+            )
+        ).first()
         return await collection_service.create(sql_session, parent_id, collection)
     except Exception as e:
         logger.logger.error(f"Error creating collection: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create collection"
+            detail="Failed to create collection",
         )
 
 
-@collection_router.put("/{collection_id}", status_code=status.HTTP_200_OK, response_model=Collection)
+@collection_router.put(
+    "/{collection_id}", status_code=status.HTTP_200_OK, response_model=Collection
+)
 async def update(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
     collection_id: int,
@@ -94,57 +117,65 @@ async def update(
         logger.logger.error(f"Error updating collection ID {collection_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update collection"
+            detail="Failed to update collection",
         )
 
 
-@collection_router.get("/collection-view/{collection_id}", status_code=status.HTTP_200_OK, response_model=dict)
+@collection_router.get(
+    "/collection-view/{collection_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=dict,
+)
 async def collection_view(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
-        collection_id: int,
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    collection_id: int,
 ):
-    if not await check_if_user_can_view_collection(sql_session, collection_id, user.user_id) and user.user_privilege!=ADMIN_USER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN
+    if (
+        not await check_if_user_can_view_collection(
+            sql_session, collection_id, user.user_id
         )
+        and user.user_privilege != ADMIN_USER
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     try:
         collection_data = await gather_collection_view_data(collection_id, user)
 
-        requester = (await sql_session.exec(SQL.select(
-            Parent.id,
-            Parent.name,
-            Parent.surname,
-            ParentGroupRole.role
-        ).select_from(
-            Collection
-        ).join(
-            ParentGroupRole, ParentGroupRole.class_group_id == Collection.class_group_id
-        ).join(
-            Parent, Parent.id == ParentGroupRole.parent_id
-        ).filter(
-            Parent.account_id == user.user_id,
-            Collection.id == collection_id,
-        )
-        )).first()
+        requester = (
+            await sql_session.exec(
+                SQL.select(Parent.id, Parent.name, Parent.surname, ParentGroupRole.role)
+                .select_from(Collection)
+                .join(
+                    ParentGroupRole,
+                    ParentGroupRole.class_group_id == Collection.class_group_id,
+                )
+                .join(Parent, Parent.id == ParentGroupRole.parent_id)
+                .filter(
+                    Parent.account_id == user.user_id,
+                    Collection.id == collection_id,
+                )
+            )
+        ).first()
 
-        collection_data['requester'] = {
-            'parent_id': requester[0],
-            'name': requester[1],
-            'surname': requester[2],
+        collection_data["requester"] = {
+            "parent_id": requester[0],
+            "name": requester[1],
+            "surname": requester[2],
             "role": requester[3],
         }
     except Exception as e:
         logger.logger.error(f"Error retrieving collection view: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve collection view"
+            detail="Failed to retrieve collection view",
         )
-
 
     return collection_data
 
-@collection_router.put("/{collection_id}/cancel", status_code=status.HTTP_200_OK, response_model=Collection)
+
+@collection_router.put(
+    "/{collection_id}/cancel", status_code=status.HTTP_200_OK, response_model=Collection
+)
 async def cancel(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     collection_id: int,
@@ -156,7 +187,63 @@ async def cancel(
         logger.logger.error(f"Error canceling collection ID {collection_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to cancel collection"
+            detail="Failed to cancel collection",
+        )
+
+
+@collection_router.put(
+    "/{collection_id}/pay/{child_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def pay(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    collection_id: int,
+    child_id: int,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+) -> None:
+    try:
+        sql_session.add(
+            SQL.Tables.CollectionOperation(
+                child_id=child_id,
+                collection_id=collection_id,
+                operation_type=CollectionOperationType.PAY,
+                requester_id=user.user_id,
+            )
+        )
+        await sql_session.commit()
+    except Exception:
+        await sql_session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to pay for child",
+        )
+
+
+@collection_router.put(
+    "/{collection_id}/unsubscribe/{child_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def unsubscribe(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    collection_id: int,
+    child_id: int,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+) -> None:
+    try:
+        sql_session.add(
+            SQL.Tables.CollectionOperation(
+                child_id=child_id,
+                collection_id=collection_id,
+                operation_type=CollectionOperationType.DISCHARGE,
+                requester_id=user.user_id,
+            )
+        )
+        await sql_session.commit()
+    except Exception:
+        await sql_session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to unsubscribe child",
         )
 
 
@@ -172,5 +259,5 @@ async def delete(
         logger.error(f"Error deleting collection ID {collection_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete collection"
+            detail="Failed to delete collection",
         )
