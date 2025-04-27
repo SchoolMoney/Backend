@@ -1,14 +1,12 @@
-import json
 from datetime import date
 from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status, logger
-
-from src.Model.CollectionModel import CreateCollection, CollectionChildrenList
+from src.Model.CollectionModel import CreateCollection
 import src.SQL as SQL
 from src.SQL.Enum import CollectionOperationType
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
-from src.SQL.Tables import Collection, Parent, ParentGroupRole, UserAccount
+from src.SQL.Tables import Collection, Parent, ParentGroupRole
 from src.Service import Auth
 from src.Service.Collection import collection_service
 from src.repository import collection_repository
@@ -258,6 +256,58 @@ async def unsubscribe(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to unsubscribe child",
+        )
+
+
+@collection_router.put(
+    "/{collection_id}/restore/{child_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def restore(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    collection_id: int,
+    child_id: int,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+) -> None:
+    parents: list[SQL.Tables.Parent] = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Parent)
+            .join(SQL.Tables.Parenthood)
+            .where(SQL.Tables.Parenthood.child_id == child_id)
+        )
+    ).all()
+
+    if user.user_id not in [parent.id for parent in parents]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to unsubscribe this child",
+        )
+
+    entry_to_delete = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.CollectionOperation).where(
+                SQL.Tables.CollectionOperation.child_id == child_id,
+                SQL.Tables.CollectionOperation.collection_id == collection_id,
+                SQL.Tables.CollectionOperation.operation_type
+                != CollectionOperationType.PAY,
+            )
+        )
+    ).first()
+
+    if not entry_to_delete:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No operation to restore found",
+        )
+
+    try:
+        await sql_session.delete(entry_to_delete)
+        await sql_session.commit()
+    except Exception:
+        await sql_session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to restore child",
         )
 
 
