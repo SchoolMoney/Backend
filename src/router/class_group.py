@@ -76,13 +76,13 @@ async def get_class_group(
 
 @class_group_router.post("/", response_model=ClassGroup, status_code=status.HTTP_201_CREATED)
 async def create_class_group(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         request: AddClassGroup,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> ClassGroup:
     """Create a new class group"""
     try:
-        return await class_group_service.create(sql_session, request)
+        return await class_group_service.create(sql_session, request, user.user_id)
     except HTTPException:
         raise
     except Exception:
