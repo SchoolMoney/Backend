@@ -117,13 +117,13 @@ async def update_class_group(
 
 @class_group_router.put("/{class_group_id}/cashier", status_code=status.HTTP_204_NO_CONTENT)
 async def change_class_group_cashier(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     class_group_id: int,
     request: ChangeClassGroupCashier,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> None:
     try:            
-        await class_group_service.change_cashier(sql_session, class_group_id, request)
+        await class_group_service.change_cashier(sql_session, class_group_id, request, user.user_id)
     except HTTPException:
         raise
     except Exception as e:

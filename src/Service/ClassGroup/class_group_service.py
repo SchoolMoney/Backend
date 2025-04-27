@@ -86,7 +86,7 @@ async def update(
 
 
 async def change_cashier(
-    sql_session: SQL.AsyncSession, class_group_id: int, request: ChangeClassGroupCashier
+    sql_session: SQL.AsyncSession, class_group_id: int, request: ChangeClassGroupCashier, user_id: int
 ):
     class_group = await class_group_repository.get_by_id(sql_session, class_group_id)
     if not class_group:
@@ -102,6 +102,13 @@ async def change_cashier(
             detail=f"Parent with ID {request.parent_id} not found"
         )
         
+    user_parent_profile = await parent_repository.get_by_user_account(sql_session, user_id)
+    if not user_parent_profile:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Parent profile not found"
+        )
+        
     parent_group_role = await parent_group_role_repository.get(sql_session, class_group_id, request.parent_id)
     if not parent_group_role:
         raise HTTPException(
@@ -110,10 +117,15 @@ async def change_cashier(
         )
         
     cashier_group_role = await parent_group_role_repository.get_cashier(sql_session, class_group_id)
-    if cashier_group_role:
-        cashier_group_role.role = ParentRole.MEMBER
-        await sql_session.commit()
-        await sql_session.refresh(cashier_group_role)
+    if cashier_group_role.parent_id is not user_parent_profile.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"You are not cashier in the class"
+        )
+        
+    cashier_group_role.role = ParentRole.MEMBER
+    await sql_session.commit()
+    await sql_session.refresh(cashier_group_role)
         
     parent_group_role.role = ParentRole.CASHIER
     await sql_session.commit()
