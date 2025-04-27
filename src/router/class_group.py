@@ -1,5 +1,5 @@
 from typing import Annotated, List, Optional, Sequence
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, logger, status
 
 from src.Service.ClassGroup import class_group_service
 from src.Model.ClassGroup import AddClassGroup, UpdateClassGroup, ChangeClassGroupCashier
@@ -28,7 +28,8 @@ async def get_class_groups(
         return await class_group_repository.get_all(sql_session, skip, limit, ids)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.logger.error(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve class groups"
@@ -67,14 +68,15 @@ async def get_class_group(
         return class_group
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.logger.error(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve class group"
         )
 
 
-@class_group_router.post("/", response_model=ClassGroup, status_code=status.HTTP_201_CREATED)
+@class_group_router.post("/", status_code=status.HTTP_201_CREATED, response_model=ClassGroup)
 async def create_class_group(
         user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         request: AddClassGroup,
@@ -85,32 +87,28 @@ async def create_class_group(
         return await class_group_service.create(sql_session, request, user.user_id)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.logger.error(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create class group"
         )
 
 
-@class_group_router.put("/{class_group_id}", status_code=status.HTTP_200_OK, response_model=ClassGroup)
+@class_group_router.put("/{class_group_id}", status_code=status.HTTP_200_OK)
 async def update_class_group(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         class_group_id: int,
         request: UpdateClassGroup,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
-) -> ClassGroup:
+):
     """Update an existing class group"""
     try:
-        class_group = await class_group_repository.update(sql_session, class_group_id, request)
-        if not class_group:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Class group with ID {class_group_id} not found"
-            )
-        return class_group
+        await class_group_service.update(sql_session, class_group_id, request, user.user_id)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.logger.error(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update class group"
@@ -123,12 +121,13 @@ async def change_class_group_cashier(
     class_group_id: int,
     request: ChangeClassGroupCashier,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
-):
+) -> None:
     try:            
         await class_group_service.change_cashier(sql_session, class_group_id, request)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.logger.error(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update class group cashier"
@@ -137,21 +136,17 @@ async def change_class_group_cashier(
 
 @class_group_router.delete("/{class_group_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_class_group(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         class_group_id: int,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> None:
     """Delete a class group"""
     try:
-        deleted = await class_group_repository.delete(sql_session, class_group_id)
-        if not deleted:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Class group with ID {class_group_id} not found"
-            )
+        await class_group_service.delete(sql_session, class_group_id, user.user_id)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        logger.logger.error(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete class group"

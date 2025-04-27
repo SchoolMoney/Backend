@@ -1,5 +1,5 @@
 from typing import Optional
-from sqlmodel import col, select
+from sqlmodel import Sequence, col, delete, select
 
 import src.SQL as SQL
 from src.SQL.Tables import ParentGroupRole
@@ -14,6 +14,15 @@ async def get(session: SQL.AsyncSession, class_group_id: int, parent_id: int) ->
     
     result = await session.exec(query)
     return result.first()
+  
+  
+async def get_by_id(session: SQL.AsyncSession, class_group_id) -> Optional[ParentGroupRole]:
+    query = select(ParentGroupRole).where(
+        ParentGroupRole.class_group_id == class_group_id
+    )
+    
+    result = await session.exec(query)
+    return result.all()
 
 
 async def get_cashier(session: SQL.AsyncSession, class_group_id: int) -> Optional[ParentGroupRole]:
@@ -35,4 +44,3 @@ async def create(session: SQL.AsyncSession, data: ParentGroupRole) -> ParentGrou
     except Exception as e:
         await session.rollback()
         raise e
-
