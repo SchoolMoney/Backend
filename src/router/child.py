@@ -78,22 +78,22 @@ async def get_user_children(
 
 @child_router.post("/", response_model=Child, status_code=status.HTTP_201_CREATED)
 async def create_child(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
         child_data: ChildCreate,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Child:
     """Create a new child"""
     try:
-        # Create Child object from validated data
         child = Child(**child_data.model_dump())
         created_child = await child_repository.create(sql_session, child)
+        user_parent_profile = await parent_repository.get_by_user_account(sql_session, user.user_id)
         
-        parenthood = Parenthood(parent_id=child_data.parent_id, child_id=created_child.id)
+        parenthood = Parenthood(parent_id=user_parent_profile.id, child_id=created_child.id)
         await parenthood_repository.create(sql_session, parenthood)
         
-        parent_group_role = await parent_group_role_repository.get(sql_session, child_data.group_id, child_data.parent_id)
+        parent_group_role = await parent_group_role_repository.get(sql_session, child_data.group_id, user_parent_profile.id)
         if not parent_group_role:
-            parent_group_role = ParentGroupRole(parent_id=child_data.parent_id, class_group_id=child_data.group_id)
+            parent_group_role = ParentGroupRole(parent_id=user_parent_profile.id, class_group_id=child_data.group_id)
             await parent_group_role_repository.create(sql_session, parent_group_role)
         
         return created_child
@@ -102,7 +102,8 @@ async def create_child(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid data: {str(e)}"
         )
-    except Exception:
+    except Exception as e:
+        logger.logger.error(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create child"
@@ -111,7 +112,7 @@ async def create_child(
 
 @child_router.put("/batch", status_code=status.HTTP_200_OK, response_model=List[Child])
 async def update_many_children(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     children_data: List[ChildBatchUpdate],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> List[Child]:
@@ -134,13 +135,13 @@ async def update_many_children(
         )
 
 
-@child_router.put("/{child_id}", status_code=status.HTTP_200_OK, response_model=Child)
+@child_router.put("/{child_id}", status_code=status.HTTP_200_OK)
 async def update_child(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     child_id: int,
     updated_data: ChildUpdate,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
-) -> Child:
+):
     """Update an existing child"""
     try:
         # Create Child object from validated data (without ID)
@@ -152,7 +153,6 @@ async def update_child(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Child with ID {child_id} not found"
             )
-        return child
     except HTTPException:
         raise
     except Exception:
@@ -164,7 +164,7 @@ async def update_child(
 
 @child_router.delete("/{child_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_child(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     child_id: int,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> None:
