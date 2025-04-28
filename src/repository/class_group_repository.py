@@ -60,6 +60,7 @@ async def get_by_belonging_user(session: SQL.AsyncSession, user_id: int) -> Opti
 
     class_groups = await session.exec(query)
     class_groups_result = class_groups.all()
+    await session.close()
     if class_groups_result  is None:
         return None
     return class_groups_result

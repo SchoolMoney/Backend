@@ -3,6 +3,7 @@ from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status, logger
 from src.Model.CollectionModel import CreateCollection
 import src.SQL as SQL
+from src.SQL import get_async_session
 from src.SQL.Enum import CollectionOperationType
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
