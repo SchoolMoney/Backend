@@ -71,7 +71,7 @@ async def get_by_id(session: AsyncSession, collection_document_id: int) -> Optio
     except Exception as error:
         logger.logger.error(error)
         raise error
-
+    await session.close()
     return document if document else None
 
 async def delete(session: AsyncSession, collection_document_id: int, user: AuthorizedUser) -> Optional[CollectionDocument]:

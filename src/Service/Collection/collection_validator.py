@@ -1,10 +1,12 @@
 from sqlmodel import select
 
 from src import SQL as SQL
+from src.SQL import get_async_session
 from src.SQL.Tables import UserAccount, Parent, ParentGroupRole, ClassGroup, Collection
 
 
 async def check_if_user_can_view_collection(session: SQL.AsyncSession, collection_id: int, user_id: int) -> bool:
+
     query = select(UserAccount.id).select_from(UserAccount).join(
         Parent, UserAccount.id == Parent.account_id
     ).join(

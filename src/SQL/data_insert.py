@@ -17,6 +17,7 @@ async def insert_data() -> None:
     """
     session: AsyncSession = await get_async_session()
     await insert_users(session)
+    await session.close()
 
 
 

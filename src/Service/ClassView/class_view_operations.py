@@ -33,6 +33,7 @@ async def get_children_in_class(session: SQL.AsyncSession, class_id: int) -> Opt
 
     children_list = await session.exec(query)
     children_result = children_list.all()
+    await session.close()
     if children_result is None:
         return None
     return children_result
@@ -58,7 +59,7 @@ async def get_parents_in_class(session: SQL.AsyncSession, class_id: int) -> Opti
         }
         for parent in parents_result
     ]
-
+    await session.close()
     if not formatted_parents:
         return []
 
@@ -74,8 +75,10 @@ async def get_collections_in_class(session: SQL.AsyncSession, class_id: int, sta
 
     collections_list = await session.exec(query)
     collections_result = collections_list.all()
+    await session.close()
     if collections_result is None:
         return None
+
     return collections_result
 
 async def get_requester_information(session: SQL.AsyncSession, class_id: int, user_id:int) -> Optional[dict] :
@@ -94,6 +97,7 @@ async def get_requester_information(session: SQL.AsyncSession, class_id: int, us
 
     requester_data = await session.exec(query)
     requester_record = requester_data.first()
+    await session.close()
     if requester_record is None:
         return None
     return {

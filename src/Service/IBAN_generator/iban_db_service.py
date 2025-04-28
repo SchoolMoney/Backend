@@ -55,6 +55,7 @@ async def update_bank_account(account_id: id, bank_account: BankAccount) -> SQL.
         raise e
 
     await session.refresh(modified_record)
+    await session.close()
     return modified_record
 
 async def get_account_by_id(account_id: id) -> Optional[SQL.Tables.Financial.BankAccount]:
@@ -64,7 +65,7 @@ async def get_account_by_id(account_id: id) -> Optional[SQL.Tables.Financial.Ban
             status=status.HTTP_204_NO_CONTENT,
             detail="No account"
         )
-
+    await session.close()
     return parent_record
 
 async def delete_bank_account(account_id: id) -> Optional[SQL.Tables.Financial.BankAccount]:
@@ -76,6 +77,7 @@ async def delete_bank_account(account_id: id) -> Optional[SQL.Tables.Financial.B
 
         await session.delete(account_data)
         await session.commit()
+        await session.close()
         return account_data
     except Exception as e:
         await session.rollback()
