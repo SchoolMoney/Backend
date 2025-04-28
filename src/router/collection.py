@@ -10,7 +10,7 @@ from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import Collection, Parent, ParentGroupRole
 from src.Service import Auth
 from src.Service.Collection import collection_service
-from src.repository import collection_repository
+from src.repository import collection_repository, child_repository
 from src.repository.collection_repository import gather_collection_view_data
 from src.Service.Collection.collection_validator import (
     check_if_user_can_view_collection,
@@ -216,6 +216,8 @@ async def pay(
         )
     ).first()
 
+    child: SQL.Tables.Child = await child_repository.get_by_id(sql_session, child_id)
+
     if collection.price > (await bank_account.get_balance(sql_session)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -235,7 +237,7 @@ async def pay(
             SQL.Tables.BankAccountOperation(
                 operation_date=date.today(),
                 amount=collection.price,
-                title=f"Payment for child {child_id}",
+                title=f"Payment for child {child.name} {child.surname}",
                 description=f"Payment for collection {collection.name}",
                 source_account_id=bank_account.id,
                 destination_account_id=collection.bank_account_id,

@@ -2,10 +2,14 @@ from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 import datetime
 import src.SQL as SQL
+from src.SQL.Enum.Privilege import ADMIN_USER
+from src.SQL.Tables import BankAccountOperation
 from src.Service import Auth
 from src.repository import bank_account_repository
 from src.repository import parent_repository
 from src.Model.BankAccount import BankAccount, ExternalBankAccountOperation
+from src.repository.bank_account_repository import get_bank_account_operations
+from src.repository.parent_repository import get_by_user_account
 
 bank_account_router = APIRouter()
 
@@ -144,3 +148,30 @@ async def get(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve bank account",
         )
+
+
+@bank_account_router.get(
+    "/operations/{bank_account_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=List[SQL.Tables.BankAccountOperation],
+)
+async def get_bank_account_operations_by_id(
+        bank_account_id: int,
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+):
+    requester_parent_account = await get_by_user_account(sql_session, user.user_id)
+
+    if requester_parent_account.bank_account_id != bank_account_id and user.user_privilege != ADMIN_USER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bank account cannot be viewed by this person",
+        )
+
+    operations: Sequence[BankAccountOperation] = await get_bank_account_operations(sql_session, bank_account_id)
+    if not operations:
+        raise HTTPException(
+            status_code=status.HTTP_204_NO_CONTENT,
+        )
+    return [operation.model_dump() for operation in operations]
+
