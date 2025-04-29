@@ -108,13 +108,21 @@ async def withdraw(
             detail="Bank account not found",
         )
 
+    available_balance = await sql_bank_account.get_balance(sql_session)
+
+    if available_balance < requestData.amount:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not enough money",
+        )
+
     try:
         sql_session.add(
             SQL.Tables.BankAccountOperation(
                 operation_date=datetime.date.today(),
                 amount=requestData.amount,
                 title="Money Withdrawal",
-                description="Money Withdrawal",
+                description=f"Money Withdrawal to {requestData.account_number}",
                 source_account_id=sql_bank_account.id,
                 destination_account_id=None,
             )
@@ -156,22 +164,92 @@ async def get(
     response_model=List[SQL.Tables.BankAccountOperation],
 )
 async def get_bank_account_operations_by_id(
-        bank_account_id: int,
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    bank_account_id: int,
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ):
     requester_parent_account = await get_by_user_account(sql_session, user.user_id)
 
-    if requester_parent_account.bank_account_id != bank_account_id and user.user_privilege != ADMIN_USER:
+    if (
+        requester_parent_account.bank_account_id != bank_account_id
+        and user.user_privilege != ADMIN_USER
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Bank account cannot be viewed by this person",
         )
 
-    operations: Sequence[BankAccountOperation] = await get_bank_account_operations(sql_session, bank_account_id)
+    operations: Sequence[BankAccountOperation] = await get_bank_account_operations(
+        sql_session, bank_account_id
+    )
     if not operations:
         raise HTTPException(
             status_code=status.HTTP_204_NO_CONTENT,
         )
     return [operation.model_dump() for operation in operations]
 
+
+@bank_account_router.post(
+    "/{bank_account_id}/collection/withdraw",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def withdraw_from_collection(
+    bank_account_id: int,
+    requestData: ExternalBankAccountOperation,
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+):
+    sql_bank_account = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.BankAccount).where(
+                SQL.Tables.BankAccount.id == bank_account_id
+            )
+        )
+    ).first()
+
+    collection = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Collection).where(
+                SQL.Tables.Collection.bank_account_id == bank_account_id
+            )
+        )
+    ).first()
+
+    parent_profile = await parent_repository.get_by_user_account(
+        sql_session, user.user_id
+    )
+
+    if parent_profile.account_id != collection.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not the owner of this collection",
+        )
+
+    available_balance = await sql_bank_account.get_balance(sql_session)
+
+    if available_balance < requestData.amount:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not enough money",
+        )
+
+    try:
+        sql_session.add(
+            SQL.Tables.BankAccountOperation(
+                operation_date=datetime.date.today(),
+                amount=requestData.amount,
+                title="Money Withdrawal",
+                description=f"Money Withdrawal to {requestData.account_number}",
+                source_account_id=sql_bank_account.id,
+                destination_account_id=None,
+            )
+        )
+        collection.withdrawn_money += requestData.amount
+        await sql_session.commit()
+    except Exception:
+        await sql_session.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not withdraw money",
+        )
