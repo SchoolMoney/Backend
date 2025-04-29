@@ -217,6 +217,12 @@ async def pay(
         )
     ).first()
 
+    if collection.status != CollectionStatus.OPEN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot pay for a collection with a status other than OPEN",
+        )
+
     child: SQL.Tables.Child = await child_repository.get_by_id(sql_session, child_id)
 
     if collection.price > (await bank_account.get_balance(sql_session)):
@@ -277,6 +283,20 @@ async def unsubscribe(
             detail="You are not authorized to unsubscribe this child",
         )
 
+    collection: SQL.Tables.Collection = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Collection).where(
+                SQL.Tables.Collection.id == collection_id
+            )
+        )
+    ).first()
+
+    if collection.status != CollectionStatus.OPEN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot unsubscribe from a collection with a status other than OPEN",
+        )
+
     try:
         sql_session.add(
             SQL.Tables.CollectionOperation(
@@ -317,6 +337,20 @@ async def restore(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to unsubscribe this child",
+        )
+
+    collection: SQL.Tables.Collection = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Collection).where(
+                SQL.Tables.Collection.id == collection_id
+            )
+        )
+    ).first()
+
+    if collection.status != CollectionStatus.OPEN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot restore from a collection with a status other than OPEN",
         )
 
     entry_to_delete = (
