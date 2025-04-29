@@ -10,6 +10,7 @@ from src.repository import parent_repository
 from src.Model.BankAccount import BankAccount, ExternalBankAccountOperation
 from src.repository.bank_account_repository import get_bank_account_operations
 from src.repository.parent_repository import get_by_user_account
+import src.SQL.Enum.CollectionStatus as CollectionStatus
 
 bank_account_router = APIRouter()
 
@@ -226,6 +227,12 @@ async def withdraw_from_collection(
         )
 
     available_balance = await sql_bank_account.get_balance(sql_session)
+
+    if collection.status == CollectionStatus.BLOCKED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot withdraw money from blocked collection",
+        )
 
     if available_balance < requestData.amount:
         raise HTTPException(

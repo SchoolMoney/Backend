@@ -157,12 +157,13 @@ async def collection_view(
             )
         ).first()
 
-        collection_data["requester"] = {
-            "parent_id": requester[0],
-            "name": requester[1],
-            "surname": requester[2],
-            "role": requester[3],
-        }
+        if requester:
+            collection_data["requester"] = {
+                "parent_id": requester[0],
+                "name": requester[1],
+                "surname": requester[2],
+                "role": requester[3],
+            }
     except Exception as e:
         logger.logger.error(f"Error retrieving collection view: {e}")
         raise HTTPException(
@@ -171,24 +172,6 @@ async def collection_view(
         )
 
     return collection_data
-
-
-@collection_router.put(
-    "/{collection_id}/cancel", status_code=status.HTTP_200_OK, response_model=Collection
-)
-async def cancel(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-    collection_id: int,
-    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
-) -> Collection:
-    try:
-        return await collection_service.cancel(sql_session, collection_id, user)
-    except Exception as e:
-        logger.logger.error(f"Error canceling collection ID {collection_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to cancel collection",
-        )
 
 
 @collection_router.put(
@@ -475,4 +458,68 @@ async def cancel_collection(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not cancel collection",
+        )
+
+
+@collection_router.put("/{collection_id}/block", status_code=status.HTTP_204_NO_CONTENT)
+async def block_collection(
+    collection_id: int,
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+):
+    collection: SQL.Tables.Collection = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Collection).where(
+                SQL.Tables.Collection.id == collection_id
+            )
+        )
+    ).first()
+
+    if collection.status != CollectionStatus.OPEN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot block a collection with a status other than OPEN",
+        )
+
+    collection.status = CollectionStatus.BLOCKED
+
+    try:
+        await sql_session.commit()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not block collection",
+        )
+
+
+@collection_router.put(
+    "/{collection_id}/unblock", status_code=status.HTTP_204_NO_CONTENT
+)
+async def unblock_collection(
+    collection_id: int,
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+):
+    collection: SQL.Tables.Collection = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Collection).where(
+                SQL.Tables.Collection.id == collection_id
+            )
+        )
+    ).first()
+
+    if collection.status != CollectionStatus.BLOCKED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot unblock a collection with a status other than BLOCKED",
+        )
+
+    collection.status = CollectionStatus.OPEN
+
+    try:
+        await sql_session.commit()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not unblock collection",
         )
