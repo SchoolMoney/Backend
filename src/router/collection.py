@@ -3,7 +3,7 @@ from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status, logger
 from src.Model.CollectionModel import CreateCollection
 import src.SQL as SQL
-from src.SQL import get_async_session
+import src.SQL.Enum.CollectionStatus as CollectionStatus
 from src.SQL.Enum import CollectionOperationType
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
@@ -12,6 +12,7 @@ from src.Service import Auth
 from src.Service.Collection import collection_service
 from src.repository import collection_repository, child_repository
 from src.repository.collection_repository import gather_collection_view_data
+from src.repository import parent_repository
 from src.Service.Collection.collection_validator import (
     check_if_user_can_view_collection,
 )
@@ -359,4 +360,85 @@ async def delete(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete collection",
+        )
+
+
+@collection_router.post(
+    "/{collection_id}/cancel", status_code=status.HTTP_204_NO_CONTENT
+)
+async def cancel_collection(
+    collection_id: int,
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+):
+    if not (
+        collection := (
+            await sql_session.exec(
+                SQL.select(SQL.Tables.Collection).where(
+                    SQL.Tables.Collection.id == collection_id
+                )
+            )
+        ).first()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Collection not found",
+        )
+
+    parent_profile = await parent_repository.get_by_user_account(
+        sql_session, user.user_id
+    )
+
+    if parent_profile.account_id != collection.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not the owner of this collection",
+        )
+
+    if collection.status != CollectionStatus.OPEN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot cancel collection with a status other than OPEN",
+        )
+
+    payments_to_returns: list[SQL.Tables.BankAccountOperation] = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.BankAccountOperation).where(
+                SQL.Tables.BankAccountOperation.destination_account_id
+                == collection.bank_account_id,
+            )
+        )
+    ).all()
+
+    for payment in payments_to_returns:
+        sql_session.add(
+            SQL.Tables.BankAccountOperation(
+                operation_date=date.today(),
+                amount=payment.amount,
+                title=f"Refund for collection {collection.name}",
+                description=f"Refund for collection {collection.name}",
+                source_account_id=collection.bank_account_id,
+                destination_account_id=payment.source_account_id,
+            )
+        )
+
+    child_status: list[SQL.Tables.CollectionOperation] = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.CollectionOperation).where(
+                SQL.Tables.CollectionOperation.collection_id == collection_id
+            )
+        )
+    ).all()
+
+    for i in range(len(child_status)):
+        child_status[i].operation_type = CollectionOperationType.REFUND
+
+    collection.status = CollectionStatus.CANCELLED
+
+    try:
+        await sql_session.commit()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not cancel collection",
         )
