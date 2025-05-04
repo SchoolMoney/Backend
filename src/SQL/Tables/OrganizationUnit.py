@@ -19,7 +19,7 @@ class ClassGroup(SQLModel, table=True):
     id: int = Field(primary_key=True)
     name: str = Field(unique=True)
     description: str
-    access_code: str | None = Field(default_factory=generate_random_code)
+    access_code: str | None = Field(default_factory=generate_random_code, unique=True)
 
 
 class ParentGroupRole(SQLModel, table=True):
