@@ -15,35 +15,37 @@ report_router = APIRouter()
 
 @report_router.get("/financial/collection", status_code=status.HTTP_200_OK)
 async def generate_financial_report(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        collection_id: int,
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    collection_id: int,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ):
     try:
         collection = await collection_repository.get_by_id(sql_session, collection_id)
         if not collection:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Collection with ID {collection_id} not found"
+                detail=f"Collection with ID {collection_id} not found",
             )
 
         can_view = await check_if_user_can_view_collection(
-            sql_session, collection_id, user.user_id,
+            sql_session,
+            collection_id,
+            user.user_id,
         )
         if not can_view:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to access this collection's data"
+                detail="Not authorized to access this collection's data",
             )
 
         children_data = await collection_repository.get_list_of_children_for_collection(
-            session=sql_session,
-            collection_id=collection_id
+            session=sql_session, collection_id=collection_id
         )
 
         query = SQL.select(SQL.Tables.CollectionOperation).where(
             SQL.Tables.CollectionOperation.collection_id == collection_id,
-            SQL.Tables.CollectionOperation.operation_type == CollectionOperationType.PAY
+            SQL.Tables.CollectionOperation.operation_type
+            == CollectionOperationType.PAY,
         )
         result = await sql_session.exec(query)
         payment_operations = result.all()
@@ -74,7 +76,9 @@ async def generate_financial_report(
                 "name": collection.name,
                 "description": collection.description,
                 "start_date": collection.start_date.isoformat(),
-                "end_date": collection.end_date.isoformat() if collection.end_date else None,
+                "end_date": (
+                    collection.end_date.isoformat() if collection.end_date else None
+                ),
                 "price_per_child": collection.price,
                 "status": collection.status,
             },
@@ -90,7 +94,7 @@ async def generate_financial_report(
             },
             "paid_children": paid_children,
             "unpaid_children": unpaid_children,
-            "generated_date": date.today().isoformat()
+            "generated_date": date.today().isoformat(),
         }
 
         return financial_report
@@ -100,5 +104,5 @@ async def generate_financial_report(
         logger.logger.error(f"Error generating financial report: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate financial report"
+            detail="Failed to generate financial report",
         )
