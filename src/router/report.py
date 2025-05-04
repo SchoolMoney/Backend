@@ -106,3 +106,117 @@ async def generate_financial_report(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate financial report",
         )
+
+
+@report_router.get("/financial/class", status_code=status.HTTP_200_OK)
+async def generate_class_financial_report(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        class_id: int,
+        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+):
+    try:
+        query = SQL.select(SQL.Tables.Collection).where(
+            SQL.Tables.Collection.class_group_id == class_id
+        )
+        result = await sql_session.exec(query)
+        collections = result.all()
+
+        if not collections:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No collections found for class ID {class_id}"
+            )
+
+        class_query = SQL.select(SQL.Tables.ClassGroup).where(
+            SQL.Tables.ClassGroup.id == class_id
+        )
+        class_result = await sql_session.exec(class_query)
+        class_data = class_result.first()
+
+        if not class_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Class with ID {class_id} not found"
+            )
+
+        # Get all children in the class
+        children_query = SQL.select(SQL.Tables.Child).where(
+            SQL.Tables.Child.group_id == class_id
+        )
+        children_result = await sql_session.exec(children_query)
+        children = children_result.all()
+
+        # Initialize report data
+        collections_summary = []
+        total_expected = 0
+        total_collected = 0
+        total_withdrawn = 0
+
+        # Process each collection
+        for collection in collections:
+            # Get payment operations for this collection
+            payment_query = SQL.select(SQL.Tables.CollectionOperation).where(
+                SQL.Tables.CollectionOperation.collection_id == collection.id,
+                SQL.Tables.CollectionOperation.operation_type == CollectionOperationType.PAY,
+            )
+            payment_result = await sql_session.exec(payment_query)
+            payments = payment_result.all()
+
+            # Calculate collection-specific totals
+            paid_count = len(payments)
+            expected_amount = collection.price * len(children)
+            collected_amount = collection.price * paid_count
+
+            # Add to overall totals
+            total_expected += expected_amount
+            total_collected += collected_amount
+            total_withdrawn += collection.withdrawn_money
+
+            # Add collection summary
+            collections_summary.append({
+                "id": collection.id,
+                "name": collection.name,
+                "start_date": collection.start_date.isoformat(),
+                "end_date": collection.end_date.isoformat() if collection.end_date else None,
+                "price_per_child": collection.price,
+                "status": collection.status,
+                "total_children": len(children),
+                "paid_children": paid_count,
+                "unpaid_children": len(children) - paid_count,
+                "expected_amount": expected_amount,
+                "collected_amount": collected_amount,
+                "outstanding_amount": expected_amount - collected_amount,
+                "withdrawn_money": collection.withdrawn_money,
+                "available_balance": collected_amount - collection.withdrawn_money,
+            })
+
+        # Prepare the final report
+        class_report = {
+            "class_info": {
+                "id": class_data.id,
+                "name": class_data.name,
+                # Add other class fields as needed
+            },
+            "financial_summary": {
+                "total_collections": len(collections),
+                "total_children": len(children),
+                "total_expected": total_expected,
+                "total_collected": total_collected,
+                "total_outstanding": total_expected - total_collected,
+                "total_withdrawn": total_withdrawn,
+                "total_available_balance": total_collected - total_withdrawn,
+            },
+            "collections": collections_summary,
+            "generated_date": date.today().isoformat(),
+        }
+
+        return class_report
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.logger.error(f"Error generating class financial report: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate class financial report"
+        )
