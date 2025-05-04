@@ -171,17 +171,12 @@ async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) 
     """Collect data for class view by running all queries concurrently"""
 
     collection, children, documents = await asyncio.gather(
-        get_by_id(
-            session=await SQL.get_async_session(),
-            collection_id=collection_id
-        ),
+        get_by_id(session=await SQL.get_async_session(), collection_id=collection_id),
         get_list_of_children_for_collection(
-            session=await SQL.get_async_session(),
-            collection_id=collection_id
+            session=await SQL.get_async_session(), collection_id=collection_id
         ),
         collection_documents_repository.get(
-            session=await SQL.get_async_session(),
-            collection_id=collection_id
+            session=await SQL.get_async_session(), collection_id=collection_id
         ),
     )
 

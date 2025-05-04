@@ -94,7 +94,7 @@ async def update(
             detail="You do not have the permissions to update this class group. You must have cashier role",
         )
 
-    updated_fields = update_data.model_dump(exclude_unset=True)
+    updated_fields = update_data.model_dump(exclude_unset=True, exclude={"access_code"})
     for key, value in updated_fields.items():
         setattr(class_group, key, value)
 

@@ -3,42 +3,48 @@ from fastapi import APIRouter, Depends, HTTPException, Query, logger, status
 
 import src.SQL as SQL
 from src.Model.ChildModel import ChildCreate, ChildBatchUpdate, ChildUpdate
-from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import Child, ParentGroupRole
 from src.SQL.Tables.People import Parenthood
 from src.Service import Auth
-from src.repository import child_repository, parenthood_repository, parent_repository, parent_group_role_repository
+from src.repository import (
+    child_repository,
+    parenthood_repository,
+    parent_repository,
+    parent_group_role_repository,
+)
 
 child_router = APIRouter()
 
 
 @child_router.get("/", status_code=status.HTTP_200_OK, response_model=List[Child])
 async def get_children(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
-        skip: int = 0,
-        limit: int = 100,
-        ids: Optional[List[int]] = Query(None),
-        group_ids: Optional[List[int]] = Query(None),
-        parent_ids: Optional[List[int]] = Query(None),
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    skip: int = 0,
+    limit: int = 100,
+    ids: Optional[List[int]] = Query(None),
+    group_ids: Optional[List[int]] = Query(None),
+    parent_ids: Optional[List[int]] = Query(None),
 ) -> Sequence[Child]:
     """Get multiple children. Can filter by IDs, group_id or get all with pagination."""
     try:
-        return await child_repository.get_all(sql_session, skip, limit, ids, group_ids, parent_ids)
+        return await child_repository.get_all(
+            sql_session, skip, limit, ids, group_ids, parent_ids
+        )
     except HTTPException:
         raise
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve children"
+            detail="Failed to retrieve children",
         )
 
 
 @child_router.get("/{child_id}", status_code=status.HTTP_200_OK, response_model=Child)
 async def get_child(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        child_id: int,
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    child_id: int,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Child:
     """Get a specific child by ID"""
     try:
@@ -46,7 +52,7 @@ async def get_child(
         if not child:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Child with ID {child_id} not found"
+                detail=f"Child with ID {child_id} not found",
             )
         return child
     except HTTPException:
@@ -54,7 +60,7 @@ async def get_child(
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve child"
+            detail="Failed to retrieve child",
         )
 
 
@@ -65,48 +71,74 @@ async def get_user_children(
 ) -> Sequence[Child]:
     """Get logged user's children"""
     try:
-        user_parent_profile = await parent_repository.get_by_user_account(sql_session, user.user_id)
-        return await child_repository.get_all(sql_session, parent_ids=[user_parent_profile.id])
+        user_parent_profile = await parent_repository.get_by_user_account(
+            sql_session, user.user_id
+        )
+        return await child_repository.get_all(
+            sql_session, parent_ids=[user_parent_profile.id]
+        )
     except HTTPException:
         raise
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve user's children"
+            detail="Failed to retrieve user's children",
         )
 
 
 @child_router.post("/", response_model=Child, status_code=status.HTTP_201_CREATED)
 async def create_child(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        child_data: ChildCreate,
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    child_data: ChildCreate,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Child:
     """Create a new child"""
+    if child_data.group_id is None and child_data.group_access_code is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either group_id or group_access_code must be provided",
+        )
+
+    if child_data.group_access_code is not None:
+        class_id = (
+            await sql_session.exec(
+                SQL.select(SQL.Tables.ClassGroup.id).where(
+                    SQL.Tables.ClassGroup.access_code == child_data.group_access_code
+                )
+            )
+        ).first()
+        child_data.group_id = class_id
     try:
         child = Child(**child_data.model_dump())
         created_child = await child_repository.create(sql_session, child)
-        user_parent_profile = await parent_repository.get_by_user_account(sql_session, user.user_id)
-        
-        parenthood = Parenthood(parent_id=user_parent_profile.id, child_id=created_child.id)
+        user_parent_profile = await parent_repository.get_by_user_account(
+            sql_session, user.user_id
+        )
+
+        parenthood = Parenthood(
+            parent_id=user_parent_profile.id, child_id=created_child.id
+        )
         await parenthood_repository.create(sql_session, parenthood)
-        
-        parent_group_role = await parent_group_role_repository.get(sql_session, child_data.group_id, user_parent_profile.id)
+
+        parent_group_role = await parent_group_role_repository.get(
+            sql_session, child_data.group_id, user_parent_profile.id
+        )
         if not parent_group_role:
-            parent_group_role = ParentGroupRole(parent_id=user_parent_profile.id, class_group_id=child_data.group_id)
+            parent_group_role = ParentGroupRole(
+                parent_id=user_parent_profile.id, class_group_id=child_data.group_id
+            )
             await parent_group_role_repository.create(sql_session, parent_group_role)
-        
+
         return created_child
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid data: {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid data: {str(e)}"
         )
     except Exception as e:
         logger.logger.error(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create child"
+            detail="Failed to create child",
         )
 
 
@@ -120,6 +152,22 @@ async def update_many_children(
     try:
         children = []
         for child_data in children_data:
+            if child_data.group_id is None and child_data.group_access_code is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Either group_id or group_access_code must be provided",
+                )
+
+            if child_data.group_access_code is not None:
+                class_id = (
+                    await sql_session.exec(
+                        SQL.select(SQL.Tables.ClassGroup.id).where(
+                            SQL.Tables.ClassGroup.access_code
+                            == child_data.group_access_code
+                        )
+                    )
+                ).first()
+                child_data.group_id = class_id
             # Create Child object with ID
             child = Child(id=child_data.id, **child_data.model_dump(exclude={"id"}))
             children.append(child)
@@ -131,7 +179,7 @@ async def update_many_children(
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update children"
+            detail="Failed to update children",
         )
 
 
@@ -143,6 +191,22 @@ async def update_child(
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ):
     """Update an existing child"""
+    if updated_data.group_id is None and updated_data.group_access_code is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either group_id or group_access_code must be provided",
+        )
+
+    if updated_data.group_access_code is not None:
+        class_id = (
+            await sql_session.exec(
+                SQL.select(SQL.Tables.ClassGroup.id).where(
+                    SQL.Tables.ClassGroup.access_code == updated_data.group_access_code
+                )
+            )
+        ).first()
+        updated_data.group_id = class_id
+
     try:
         # Create Child object from validated data (without ID)
         updated_child = Child(**updated_data.model_dump(exclude_unset=True))
@@ -151,14 +215,14 @@ async def update_child(
         if not child:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Child with ID {child_id} not found"
+                detail=f"Child with ID {child_id} not found",
             )
     except HTTPException:
         raise
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update child"
+            detail="Failed to update child",
         )
 
 
@@ -174,7 +238,7 @@ async def delete_child(
         if not deleted:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Child with ID {child_id} not found"
+                detail=f"Child with ID {child_id} not found",
             )
     except HTTPException:
         raise
@@ -182,5 +246,5 @@ async def delete_child(
         logger.logger.error(f"Error retrieving collections: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete child"
+            detail="Failed to delete child",
         )

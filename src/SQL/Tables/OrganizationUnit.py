@@ -1,5 +1,13 @@
 from sqlmodel import SQLModel, Field
 import src.SQL.Enum.ParentRole as ParentRole
+import string
+import random
+
+
+def generate_random_code(length=6):
+    return "".join(
+        random.choices("".join([string.ascii_uppercase, string.digits]), k=length)
+    )
 
 
 class ClassGroup(SQLModel, table=True):
@@ -11,6 +19,7 @@ class ClassGroup(SQLModel, table=True):
     id: int = Field(primary_key=True)
     name: str = Field(unique=True)
     description: str
+    access_code: str | None = Field(default_factory=generate_random_code)
 
 
 class ParentGroupRole(SQLModel, table=True):
