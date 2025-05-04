@@ -1,6 +1,7 @@
 from fastapi import APIRouter, logger
 import src.SQL as SQL
 from src.SQL.Enum import CollectionOperationType
+from src.Model.UserAccountPrivilegeEnum import UserAccountPrivilegeEnum
 from src.Service import Auth
 from src.repository import collection_repository
 from datetime import date
@@ -27,11 +28,15 @@ async def generate_financial_report(
                 detail=f"Collection with ID {collection_id} not found",
             )
 
-        can_view = await check_if_user_can_view_collection(
-            sql_session,
-            collection_id,
-            user.user_id,
-        )
+        if user.user_privilege == UserAccountPrivilegeEnum.ADMIN_USER:
+            can_view = True
+        else:
+            can_view = await check_if_user_can_view_collection(
+                sql_session,
+                collection_id,
+                user.user_id,
+            )
+
         if not can_view:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
