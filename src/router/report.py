@@ -19,7 +19,6 @@ async def generate_financial_report(
         collection_id: int,
         sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ):
-    """Generate a financial report with collection details and payment status"""
     try:
         collection = await collection_repository.get_by_id(sql_session, collection_id)
         if not collection:
@@ -37,13 +36,11 @@ async def generate_financial_report(
                 detail="Not authorized to access this collection's data"
             )
 
-        # Get children data for the collection
         children_data = await collection_repository.get_list_of_children_for_collection(
             session=sql_session,
             collection_id=collection_id
         )
 
-        # Get payment operations for children in this collection
         query = SQL.select(SQL.Tables.CollectionOperation).where(
             SQL.Tables.CollectionOperation.collection_id == collection_id,
             SQL.Tables.CollectionOperation.operation_type == CollectionOperationType.PAY
