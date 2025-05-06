@@ -78,6 +78,12 @@ app.include_router(
     tags=["Collection documents"],
 )
 
+app.include_router(
+    router.report_router,
+    prefix=f"{config.API_PREFIX}/report",
+    tags=["report"],
+)
+
 if __name__ == "__main__":
     uvicorn.run(
         app,
