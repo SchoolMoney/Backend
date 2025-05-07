@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+
 class BankAccountOperation(BaseModel):
     operation_id: int
     operation_date: datetime

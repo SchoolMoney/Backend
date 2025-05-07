@@ -115,9 +115,9 @@ async def generate_financial_report(
 
 @report_router.get("/financial/class", status_code=status.HTTP_200_OK)
 async def generate_class_financial_report(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        class_id: int,
-        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    class_id: int,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ):
     try:
         query = SQL.select(SQL.Tables.Collection).where(
@@ -129,7 +129,7 @@ async def generate_class_financial_report(
         if not collections:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No collections found for class ID {class_id}"
+                detail=f"No collections found for class ID {class_id}",
             )
 
         class_query = SQL.select(SQL.Tables.ClassGroup).where(
@@ -141,7 +141,7 @@ async def generate_class_financial_report(
         if not class_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Class with ID {class_id} not found"
+                detail=f"Class with ID {class_id} not found",
             )
 
         # Get all children in the class
@@ -162,7 +162,8 @@ async def generate_class_financial_report(
             # Get payment operations for this collection
             payment_query = SQL.select(SQL.Tables.CollectionOperation).where(
                 SQL.Tables.CollectionOperation.collection_id == collection.id,
-                SQL.Tables.CollectionOperation.operation_type == CollectionOperationType.PAY,
+                SQL.Tables.CollectionOperation.operation_type
+                == CollectionOperationType.PAY,
             )
             payment_result = await sql_session.exec(payment_query)
             payments = payment_result.all()
@@ -178,22 +179,26 @@ async def generate_class_financial_report(
             total_withdrawn += collection.withdrawn_money
 
             # Add collection summary
-            collections_summary.append({
-                "id": collection.id,
-                "name": collection.name,
-                "start_date": collection.start_date.isoformat(),
-                "end_date": collection.end_date.isoformat() if collection.end_date else None,
-                "price_per_child": collection.price,
-                "status": collection.status,
-                "total_children": len(children),
-                "paid_children": paid_count,
-                "unpaid_children": len(children) - paid_count,
-                "expected_amount": expected_amount,
-                "collected_amount": collected_amount,
-                "outstanding_amount": expected_amount - collected_amount,
-                "withdrawn_money": collection.withdrawn_money,
-                "available_balance": collected_amount - collection.withdrawn_money,
-            })
+            collections_summary.append(
+                {
+                    "id": collection.id,
+                    "name": collection.name,
+                    "start_date": collection.start_date.isoformat(),
+                    "end_date": (
+                        collection.end_date.isoformat() if collection.end_date else None
+                    ),
+                    "price_per_child": collection.price,
+                    "status": collection.status,
+                    "total_children": len(children),
+                    "paid_children": paid_count,
+                    "unpaid_children": len(children) - paid_count,
+                    "expected_amount": expected_amount,
+                    "collected_amount": collected_amount,
+                    "outstanding_amount": expected_amount - collected_amount,
+                    "withdrawn_money": collection.withdrawn_money,
+                    "available_balance": collected_amount - collection.withdrawn_money,
+                }
+            )
 
         # Prepare the final report
         class_report = {
@@ -223,5 +228,5 @@ async def generate_class_financial_report(
         logger.logger.error(f"Error generating class financial report: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate class financial report"
+            detail="Failed to generate class financial report",
         )

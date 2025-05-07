@@ -21,11 +21,14 @@ async def get_all(session: SQL.AsyncSession) -> Sequence[BankAccount]:
 
     return result.all()
 
-async def get_bank_account_operations(session: SQL.AsyncSession, bank_account_id) -> Optional[Sequence[BankAccountOperation]]:
+
+async def get_bank_account_operations(
+    session: SQL.AsyncSession, bank_account_id
+) -> Optional[Sequence[BankAccountOperation]]:
     query = select(BankAccountOperation).where(
         or_(
             BankAccountOperation.source_account_id == bank_account_id,
-            BankAccountOperation.destination_account_id == bank_account_id
+            BankAccountOperation.destination_account_id == bank_account_id,
         )
     )
 

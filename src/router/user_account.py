@@ -1,6 +1,11 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, status, HTTPException
-from src.Model.UserAccount import RegisterUser, UpdateUserAccountStatus, User, UpdateUserAccountPrivilege
+from src.Model.UserAccount import (
+    RegisterUser,
+    UpdateUserAccountStatus,
+    User,
+    UpdateUserAccountPrivilege,
+)
 import src.SQL as SQL
 import src.Service.Auth as Auth
 from src.SQL.Enum.Privilege import ADMIN_USER
@@ -43,7 +48,7 @@ async def me(
     ).first()
 
 
-@user_router.get('/parent/{parent_id}', response_model=User)
+@user_router.get("/parent/{parent_id}", response_model=User)
 async def get_user_by_parent(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
     parent_id: int,
@@ -53,10 +58,12 @@ async def get_user_by_parent(
     Returns information about user by parent ID.
     """
     user_parent_profile = await parent_repository.get_by_id(sql_session, parent_id)
-    return await account_repository.get_by_user(sql_session, user_parent_profile.account_id)
+    return await account_repository.get_by_user(
+        sql_session, user_parent_profile.account_id
+    )
 
 
-@user_router.put('/parent/{parent_id}')
+@user_router.put("/parent/{parent_id}")
 async def update_user_parent_status(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
     parent_id: int,
@@ -64,11 +71,14 @@ async def update_user_parent_status(
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
 ):
     user_parent_profile = await parent_repository.get_by_id(sql_session, parent_id)
-    user = await account_repository.get_by_user(sql_session, user_parent_profile.account_id)
+    user = await account_repository.get_by_user(
+        sql_session, user_parent_profile.account_id
+    )
     user.status = request.status
     await sql_session.commit()
 
-@user_router.put('/parent/privilege/{parent_id}')
+
+@user_router.put("/parent/privilege/{parent_id}")
 async def update_user_parent_privilege(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
     parent_id: int,
@@ -81,7 +91,8 @@ async def update_user_parent_privilege(
             status_code=status.HTTP_409_CONFLICT,
             detail="You cannot change your own privilege",
         )
-    user = await account_repository.get_by_user(sql_session, user_parent_profile.account_id)
+    user = await account_repository.get_by_user(
+        sql_session, user_parent_profile.account_id
+    )
     user.privilege = request.privilege
     await sql_session.commit()
-

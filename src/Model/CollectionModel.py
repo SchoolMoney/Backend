@@ -37,6 +37,7 @@ class CreateCollection(BaseModel):
     bank_account_id: int
     owner_id: int
 
+
 class CollectionChildrenList(BaseModel):
     child_id: int
     child_name: str

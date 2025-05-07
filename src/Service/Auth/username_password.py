@@ -25,7 +25,8 @@ async def user_login(
 
     if user.status != ENABLED:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="User login is locked. Please contact administrator"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User login is locked. Please contact administrator",
         )
 
     return generate_access_token(user)
