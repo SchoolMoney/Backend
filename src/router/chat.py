@@ -9,7 +9,13 @@ from fastapi import (
 from typing import Annotated, List
 import src.Service.Auth as Auth
 import src.repository.chat_repository as chat_repository
-from src.Model.Chat import Message, Conversation, CreateConversation, SendMessage, MarkMessagesReadRequest
+from src.Model.Chat import (
+    Message,
+    Conversation,
+    CreateConversation,
+    SendMessage,
+    MarkMessagesReadRequest,
+)
 import json
 from datetime import datetime
 from fastapi import logger
@@ -146,8 +152,8 @@ async def get_conversation_messages(
 
 @chat_router.post("/messages/read")
 async def mark_messages_read(
-        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-        request: MarkMessagesReadRequest,
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    request: MarkMessagesReadRequest,
 ):
     try:
         # Verify user has access to all the messages
@@ -158,7 +164,9 @@ async def mark_messages_read(
             if not message:
                 continue
 
-            conversation = await chat_repository.get_conversation(message.conversation_id)
+            conversation = await chat_repository.get_conversation(
+                message.conversation_id
+            )
             if conversation and user.user_id in conversation.participants:
                 authorized_message_ids.append(message_id)
 
@@ -174,5 +182,5 @@ async def mark_messages_read(
         logger.logger.error(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to mark messages as read"
+            detail="Failed to mark messages as read",
         )

@@ -20,8 +20,6 @@ async def insert_data() -> None:
     await session.close()
 
 
-
-
 async def insert_users(session: AsyncSession) -> None:
     users = [
         UserAccount(
@@ -49,20 +47,24 @@ async def insert_users(session: AsyncSession) -> None:
             await create_parent_for_user(session, users)
 
 
-async def create_parent_for_user(session: AsyncSession, users: List[UserAccount]) -> None:
+async def create_parent_for_user(
+    session: AsyncSession, users: List[UserAccount]
+) -> None:
     parent: ParentModel = ParentModel(
-            **{
-                "name": DEFAULT_ADMIN_USERNAME,
-                "surname": DEFAULT_ADMIN_USERNAME,
-                "phone":"000000000",
-                "city": DEFAULT_ADMIN_USERNAME,
-                "street": DEFAULT_ADMIN_USERNAME,
-                "house_number": '0'
-            }
-        )
+        **{
+            "name": DEFAULT_ADMIN_USERNAME,
+            "surname": DEFAULT_ADMIN_USERNAME,
+            "phone": "000000000",
+            "city": DEFAULT_ADMIN_USERNAME,
+            "street": DEFAULT_ADMIN_USERNAME,
+            "house_number": "0",
+        }
+    )
 
     for user in users:
-        account_record_id = await session.exec(select(UserAccount.id).filter(UserAccount.username == user.username))
+        account_record_id = await session.exec(
+            select(UserAccount.id).filter(UserAccount.username == user.username)
+        )
         account_record_id = account_record_id.first()
 
         bank_account = await create_bank_account(session)
@@ -70,9 +72,8 @@ async def create_parent_for_user(session: AsyncSession, users: List[UserAccount]
             **{
                 **parent.model_dump(),
                 "bank_account_id": bank_account.id,
-                "account_id": account_record_id
+                "account_id": account_record_id,
             }
         )
         session.add(parent_record)
         await session.commit()
-

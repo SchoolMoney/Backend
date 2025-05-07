@@ -23,7 +23,7 @@ async def get_all(
     session: SQL.AsyncSession,
     skip: int = 0,
     limit: int = 100,
-    ids: Optional[List[int]] = None
+    ids: Optional[List[int]] = None,
 ) -> Sequence[ClassGroup]:
     """Get multiple class groups with optional filtering"""
     query = select(ClassGroup)
@@ -36,7 +36,9 @@ async def get_all(
     return results.all()
 
 
-async def get_by_id(session: SQL.AsyncSession, class_group_id: int) -> Optional[ClassGroup]:
+async def get_by_id(
+    session: SQL.AsyncSession, class_group_id: int
+) -> Optional[ClassGroup]:
     """Get a specific class group by ID"""
     query = select(ClassGroup).where(ClassGroup.id == class_group_id)
     result = await session.exec(query)
@@ -50,23 +52,35 @@ async def get_by_name(session: SQL.AsyncSession, name: str) -> Optional[ClassGro
     return result.first()
 
 
-async def get_by_belonging_user(session: SQL.AsyncSession, user_id: int) -> Optional[Sequence[ClassGroup]]:
+async def get_by_belonging_user(
+    session: SQL.AsyncSession, user_id: int
+) -> Optional[Sequence[ClassGroup]]:
     """Get a specific class groups which user belongs to"""
-    query = SQL.select(SQL.Tables.ClassGroup).join(
-        SQL.Tables.ParentGroupRole, SQL.Tables.ParentGroupRole.class_group_id == SQL.Tables.ClassGroup.id).join(
-        SQL.Tables.Parent, SQL.Tables.Parent.id == SQL.Tables.ParentGroupRole.parent_id).filter(
-        SQL.Tables.Parent.account_id == user_id
-    ).order_by(SQL.Tables.ClassGroup.id.desc())
+    query = (
+        SQL.select(SQL.Tables.ClassGroup)
+        .join(
+            SQL.Tables.ParentGroupRole,
+            SQL.Tables.ParentGroupRole.class_group_id == SQL.Tables.ClassGroup.id,
+        )
+        .join(
+            SQL.Tables.Parent,
+            SQL.Tables.Parent.id == SQL.Tables.ParentGroupRole.parent_id,
+        )
+        .filter(SQL.Tables.Parent.account_id == user_id)
+        .order_by(SQL.Tables.ClassGroup.id.desc())
+    )
 
     class_groups = await session.exec(query)
     class_groups_result = class_groups.all()
     await session.close()
-    if class_groups_result  is None:
+    if class_groups_result is None:
         return None
     return class_groups_result
 
 
-async def update(session: SQL.AsyncSession, class_group_id: int, updated_class_group: ClassGroup) -> Optional[ ClassGroup]:
+async def update(
+    session: SQL.AsyncSession, class_group_id: int, updated_class_group: ClassGroup
+) -> Optional[ClassGroup]:
     """Update an existing class group"""
     try:
         db_class_group = await get_by_id(session, class_group_id)
@@ -84,8 +98,8 @@ async def update(session: SQL.AsyncSession, class_group_id: int, updated_class_g
     except Exception as e:
         await session.rollback()
         raise e
-      
-      
+
+
 async def delete(session: SQL.AsyncSession, class_group_id: int):
     """Delete a class group and manage related entities."""
     try:
@@ -93,7 +107,7 @@ async def delete(session: SQL.AsyncSession, class_group_id: int):
             ParentGroupRole.class_group_id == class_group_id
         )
         await session.exec(delete_parent_group_roles_query)
-        
+
         childs_query = select(Child).where(Child.group_id == class_group_id)
         childs = (await session.exec(childs_query)).all()
         for child in childs:
@@ -102,10 +116,9 @@ async def delete(session: SQL.AsyncSession, class_group_id: int):
 
         db_class_group = await get_by_id(session, class_group_id)
         session.delete(db_class_group)
-        
+
         await session.commit()
     except Exception as e:
         logger.logger.error(e)
         await session.rollback()
         raise e
-

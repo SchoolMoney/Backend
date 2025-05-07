@@ -2,6 +2,7 @@ from enum import IntEnum
 
 from src.SQL.Enum import CollectionStatus as CSValues
 
+
 class CollectionStatusEnum(IntEnum):
     OPEN = CSValues.OPEN
     FINISHED = CSValues.FINISHED

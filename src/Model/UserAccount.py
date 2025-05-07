@@ -59,10 +59,11 @@ class UpdateParentProfile(BaseModel):
     city: str
     street: str
     house_number: str
-    
-    
+
+
 class UpdateUserAccountStatus(BaseModel):
     status: UserAccountStatusEnum
+
 
 class UpdateUserAccountPrivilege(BaseModel):
     privilege: UserAccountPrivilegeEnum

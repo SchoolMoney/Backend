@@ -56,4 +56,3 @@ class Parent(SQLModel, ParentModel, table=True):
     id: int = Field(primary_key=True)
     account_id: int = Field(foreign_key="user_account.id", unique=True)
     bank_account_id: int = Field(foreign_key="bank_account.id")
-

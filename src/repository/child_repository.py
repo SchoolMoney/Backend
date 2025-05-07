@@ -35,9 +35,11 @@ async def get_all(
 
     if group_ids:
         query = query.where(col(Child.group_id).in_(group_ids))
-        
+
     if parent_ids:
-        query = query.join(Parenthood, Child.id == Parenthood.child_id).where(col(Parenthood.parent_id).in_(parent_ids))
+        query = query.join(Parenthood, Child.id == Parenthood.child_id).where(
+            col(Parenthood.parent_id).in_(parent_ids)
+        )
 
     query = query.offset(skip).limit(limit)
     results = await session.exec(query)
@@ -51,7 +53,9 @@ async def get_by_id(session: SQL.AsyncSession, child_id: int) -> Optional[Child]
     return result.first()
 
 
-async def update(session: SQL.AsyncSession, child_id: int, updated_child: Child) -> Optional[Child]:
+async def update(
+    session: SQL.AsyncSession, child_id: int, updated_child: Child
+) -> Optional[Child]:
     """Update an existing child"""
     try:
         db_child = await get_by_id(session, child_id)
@@ -76,7 +80,7 @@ async def update_many(session: SQL.AsyncSession, children: List[Child]) -> List[
     try:
         updated_children = []
         for child in children:
-            if not hasattr(child, 'id') or child.id is None:
+            if not hasattr(child, "id") or child.id is None:
                 continue  # Skip children without IDs
 
             db_child = await get_by_id(session, child.id)
@@ -85,7 +89,7 @@ async def update_many(session: SQL.AsyncSession, children: List[Child]) -> List[
 
             update_data = child.dict(exclude_unset=True)
             for key, value in update_data.items():
-                if key != 'id' and value  is not None:  # Don't update the ID
+                if key != "id" and value is not None:  # Don't update the ID
                     setattr(db_child, key, value)
 
             session.add(db_child)
@@ -107,16 +111,14 @@ async def delete(session: SQL.AsyncSession, child_id: int) -> bool:
         db_child = await get_by_id(session, child_id)
         if not db_child:
             return False
-          
+
         db_parenthood = await parenthood_repository.get_by_child_id(session, child_id)
         await session.delete(db_parenthood)
         await session.commit()
-        
+
         await session.delete(db_child)
         await session.commit()
         return True
     except Exception as e:
         await session.rollback()
         raise e
-      
-

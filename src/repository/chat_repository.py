@@ -60,12 +60,13 @@ async def mark_messages_as_read(conversation_id: str, user_id: int) -> int:
     )
     return result.modified_count
 
+
 async def mark_specific_messages_as_read(message_ids: List[str], user_id: int) -> int:
     """Mark specific messages as read by a user"""
     object_ids = [ObjectId(msg_id) for msg_id in message_ids]
     result = await messages_collection.update_many(
         {"_id": {"$in": object_ids}, "read_by": {"$ne": user_id}},
-        {"$push": {"read_by": user_id}}
+        {"$push": {"read_by": user_id}},
     )
     return result.modified_count
 

@@ -29,7 +29,7 @@ async def create(
         **{
             **parent_entry.model_dump(),
             "account_id": user.user_id,
-            "bank_account_id": bank_account.id
+            "bank_account_id": bank_account.id,
         }
     )
     sql_session.add(parent_record)
@@ -55,9 +55,15 @@ async def update(
 ) -> SQL.Tables.People.Parent:
     parent_entry.is_valid_number()
 
-    if (modified_record := (await sql_session.exec(
-            SQL.select(SQL.Tables.People.Parent).filter(
-                SQL.Tables.People.Parent.account_id == user.user_id))).first()) is None:
+    if (
+        modified_record := (
+            await sql_session.exec(
+                SQL.select(SQL.Tables.People.Parent).filter(
+                    SQL.Tables.People.Parent.account_id == user.user_id
+                )
+            )
+        ).first()
+    ) is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You are not a parent",
@@ -85,8 +91,9 @@ async def get(
         logger.logger.error(f"Error retrieving parents: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve parents"
+            detail="Failed to retrieve parents",
         )
+
 
 @parent_router.get("/all_basic_info", response_model=List[ParentBasicInfo])
 async def get_all_basic_info(
@@ -99,8 +106,9 @@ async def get_all_basic_info(
         logger.logger.error(f"Error retrieving all basic info: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve all basic info"
+            detail="Failed to retrieve all basic info",
         )
+
 
 @parent_router.get("/user", response_model=SQL.Tables.People.Parent)
 async def get_by_logged_user(
@@ -113,7 +121,7 @@ async def get_by_logged_user(
         logger.logger.error(f"Error retrieving user's parent profile: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve user's parent profile"
+            detail="Failed to retrieve user's parent profile",
         )
 
 
@@ -125,10 +133,12 @@ async def update_logged_user_profile(
 ):
     try:
         updated_profile = SQL.Tables.Parent(**parent_profile.model_dump())
-        await parent_repository.update_by_user(sql_session, updated_profile, user.user_id)
+        await parent_repository.update_by_user(
+            sql_session, updated_profile, user.user_id
+        )
     except Exception as e:
         logger.logger.error(f"Error updating user's parent profile: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to updating user's parent profile"
+            detail="Failed to updating user's parent profile",
         )
