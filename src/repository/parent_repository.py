@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import Optional, List
 from sqlmodel import Sequence, col, select
 
 import src.SQL as SQL
+from src.Model.ParentBasicInfo import ParentBasicInfo
 from src.SQL.Tables import Parent
 
 
@@ -17,7 +18,22 @@ async def get_all(session: SQL.AsyncSession) -> Sequence[Parent]:
     
     result = await session.exec(query)
     return result.all()
-  
+
+async def get_all_basic_info(session: SQL.AsyncSession) -> List[ParentBasicInfo]:
+    query = select(Parent.id, Parent.name, Parent.surname)
+
+    result = await session.exec(query)
+    parents_data = result.all()
+
+    return [
+        ParentBasicInfo(
+            id=int(parent_id),
+            first_name=str(parent_name),
+            last_name=str(parent_surname)
+        )
+        for parent_id, parent_name, parent_surname in parents_data
+    ]
+
 
 async def get_by_id(session: SQL.AsyncSession, parent_id: int) -> Optional[Parent]:
     query = select(Parent).where(Parent.id == parent_id)
