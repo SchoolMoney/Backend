@@ -36,5 +36,7 @@ PASSWORD_HASH_SALT = os.getenv("PASSWORD_HASH_SALT", "$2b$12$tEwk7HxlN0EMUr4jx1d
 DEFAULT_ADMIN_USERNAME = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
 DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin")
 
-MONGODB_URL = "mongodb://localhost:27017"
-MONGODB_DB_NAME = "chat_db"
+MONGODB_HOST = os.getenv("MONGODB_HOST", "localhost")
+MONGODB_PORT = os.getenv("MONGODB_PORT", 27017)
+MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "chat_db")
+MONGODB_URL = f"mongodb://{MONGODB_HOST}:{MONGODB_PORT}"
