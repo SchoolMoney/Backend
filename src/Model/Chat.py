@@ -37,3 +37,6 @@ class SendMessage(BaseModel):
     content: str
     message_type: MessageType = MessageType.TEXT
     file_url: Optional[str] = None
+
+class MarkMessagesReadRequest(BaseModel):
+    message_ids: List[str]
