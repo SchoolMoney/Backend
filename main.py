@@ -84,6 +84,12 @@ app.include_router(
     tags=["report"],
 )
 
+app.include_router(
+    router.chat_router,
+    prefix=f"{config.API_PREFIX}/chat",
+    tags=["chat"],
+)
+
 if __name__ == "__main__":
     uvicorn.run(
         app,

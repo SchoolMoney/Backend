@@ -1,6 +1,8 @@
 from typing import Annotated, List
 from fastapi import APIRouter, Depends, logger, status, HTTPException
 from sqlmodel import Sequence
+
+from src.Model.ParentBasicInfo import ParentBasicInfo
 from src.repository import parent_repository
 from src.Model.PeopleModel import ParentModel
 import src.SQL as SQL
@@ -86,6 +88,19 @@ async def get(
             detail="Failed to retrieve parents"
         )
 
+@parent_router.get("/all_basic_info", response_model=List[ParentBasicInfo])
+async def get_all_basic_info(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.async_session_generator)],
+) -> List[ParentBasicInfo]:
+    try:
+        return await parent_repository.get_all_basic_info(sql_session)
+    except Exception as e:
+        logger.logger.error(f"Error retrieving all basic info: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve all basic info"
+        )
 
 @parent_router.get("/user", response_model=SQL.Tables.People.Parent)
 async def get_by_logged_user(
