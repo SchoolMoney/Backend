@@ -1,5 +1,5 @@
-from typing import Annotated, List, Optional, Sequence
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import Annotated, List, Sequence
+from fastapi import APIRouter, Depends, HTTPException, status
 import datetime
 import src.SQL as SQL
 from src.SQL.Enum.Privilege import ADMIN_USER
@@ -8,6 +8,7 @@ from src.Service import Auth
 from src.repository import bank_account_repository
 from src.repository import parent_repository
 from src.Model.BankAccount import BankAccount, ExternalBankAccountOperation
+from src.Model.BankAccountOperation import BankAccountBalance
 from src.repository.bank_account_repository import get_bank_account_operations
 from src.repository.parent_repository import get_by_user_account
 import src.SQL.Enum.CollectionStatus as CollectionStatus
@@ -42,7 +43,9 @@ async def get_bank_account_for_auth_user(
     )
 
 
-@bank_account_router.post("/user/deposit", status_code=status.HTTP_204_NO_CONTENT)
+@bank_account_router.post(
+    "/user/deposit", status_code=status.HTTP_200_OK, response_model=BankAccountBalance
+)
 async def deposit(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
@@ -85,8 +88,17 @@ async def deposit(
             detail="Could not deposit money",
         )
 
+    balance = await sql_bank_account.get_balance(sql_session)
 
-@bank_account_router.post("/user/withdraw", status_code=status.HTTP_204_NO_CONTENT)
+    return BankAccountBalance(
+        account_id=sql_bank_account.id,
+        balance=balance,
+    )
+
+
+@bank_account_router.post(
+    "/user/withdraw", status_code=status.HTTP_200_OK, response_model=BankAccountBalance
+)
 async def withdraw(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
@@ -136,6 +148,13 @@ async def withdraw(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not withdraw money",
         )
+
+    balance = await sql_bank_account.get_balance(sql_session)
+
+    return BankAccountBalance(
+        account_id=sql_bank_account.id,
+        balance=balance,
+    )
 
 
 @bank_account_router.get(
@@ -192,7 +211,8 @@ async def get_bank_account_operations_by_id(
 
 @bank_account_router.post(
     "/{bank_account_id}/collection/withdraw",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=status.HTTP_200_OK,
+    response_model=BankAccountBalance,
 )
 async def withdraw_from_collection(
     bank_account_id: int,
@@ -260,3 +280,10 @@ async def withdraw_from_collection(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not withdraw money",
         )
+
+    balance = await sql_bank_account.get_balance(sql_session)
+
+    return BankAccountBalance(
+        account_id=sql_bank_account.id,
+        balance=balance,
+    )
