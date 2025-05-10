@@ -30,7 +30,7 @@ async def get_bank_account_for_auth_user(
     sql_bank_account = (
         await sql_session.exec(
             SQL.select(SQL.Tables.BankAccount).where(
-                SQL.Tables.BankAccount.id == parent_profile.account_id
+                SQL.Tables.BankAccount.id == parent_profile.bank_account_id
             )
         )
     ).first()
@@ -58,7 +58,7 @@ async def deposit(
         sql_bank_account := (
             await sql_session.exec(
                 SQL.select(SQL.Tables.BankAccount).where(
-                    SQL.Tables.BankAccount.id == parent_profile.account_id
+                    SQL.Tables.BankAccount.id == parent_profile.bank_account_id
                 )
             )
         ).first()
@@ -111,7 +111,7 @@ async def withdraw(
         sql_bank_account := (
             await sql_session.exec(
                 SQL.select(SQL.Tables.BankAccount).where(
-                    SQL.Tables.BankAccount.id == parent_profile.account_id
+                    SQL.Tables.BankAccount.id == parent_profile.bank_account_id
                 )
             )
         ).first()
