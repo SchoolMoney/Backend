@@ -437,9 +437,13 @@ async def refund(
 
     # Parent who is responsible for the child, might be different from the one who paid
     # Find the parent who paid for the child to refund to them
-    parent: SQL.Tables.Parent = next(
-        (p for p in parents if p.account_id == operation.requester_id), None
-    )
+    parent: SQL.Tables.Parent = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Parent).where(
+                SQL.Tables.Parent.id == operation.requester_id
+            )
+        )
+    ).first()
 
     if not parent:
         raise HTTPException(
