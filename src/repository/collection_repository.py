@@ -4,12 +4,12 @@ from typing import List, Optional, Sequence
 from fastapi import logger
 from sqlmodel import select, and_, func
 
-from src.repository import collection_operations_repository
+from src.repository import bank_account_repository
 import src.SQL as SQL
 from src.Model.CollectionModel import CollectionChildrenList
 from src.Model.UserAccountPrivilegeEnum import UserAccountPrivilegeEnum
 from src.SQL.Tables import Collection, ClassGroup, ParentGroupRole
-from src.SQL.Tables.People import Parent, UserAccount, Child
+from src.SQL.Tables.People import Parent, UserAccount, Child, Parenthood
 import src.SQL.Tables as CollectionStatusEnum
 from src.SQL.Tables.Collection import CollectionOperation
 from src.SQL.Enum.CollectionStatus import CANCELLED
@@ -171,24 +171,32 @@ async def get_list_of_children_for_collection(
 async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) -> dict:
     """Collect data for class view by running all queries concurrently"""
 
-    collection, children, operations, operations = await asyncio.gather(
-        get_by_id(session=await SQL.get_async_session(), collection_id=collection_id),
+    collection = await get_by_id(session=await SQL.get_async_session(), collection_id=collection_id)
+    children, documents, raw_operations = await asyncio.gather(
         get_list_of_children_for_collection(
             session=await SQL.get_async_session(), collection_id=collection_id
         ),
         collection_documents_repository.get(
             session=await SQL.get_async_session(), collection_id=collection_id
         ),
-        collection_operations_repository.get(
-            session=await SQL.get_async_session(), collection_id=collection_id
+        bank_account_repository.get_bank_account_operations_with_iban(
+            session=await SQL.get_async_session(), bank_account_id=collection.bank_account_id
         ),
     )
-
+    
+    # Here we map the raw operations (returned as SQLAlchemy Row objects) to dictionaries.
+    # This relies on SQLAlchemy's built-in _mapping attribute.
+    # It does not require us to write a custom dumping function inside the repository.
+    if raw_operations and hasattr(raw_operations[0], "_mapping"):
+        operations = [dict(op._mapping) for op in raw_operations]
+    else:
+        operations = raw_operations
+    
     return {
         "collection": collection.model_dump(),
-        "operations": [operation.model_dump() for operation in operations],
+        "operations": operations,
         "children": [child.model_dump() for child in children],
-        "documents": [document.model_dump() for document in operations],
+        "documents": [document.model_dump() for document in documents],
     }
 
 
@@ -253,3 +261,27 @@ async def delete(session: SQL.AsyncSession, collection_id: int) -> bool:
     except Exception as e:
         await session.rollback()
         raise e
+      
+      
+def is_user_assigned_to_collection(session: SQL.AsyncSession, user_id: int, collection_id: int) -> bool:
+    # First, retrieve the requested collection to get its class_group_id
+    collection = session.get(Collection, collection_id)
+    if not collection:
+        return False
+
+    # Build a query that joins Child -> Parenthood -> Parent so we can filter by:
+    #   - Child.group_id equals collection.class_group_id
+    #   - Parent.account_id matches the logged user id
+    query = (
+        select(Child)
+        .join(Parenthood, Child.id == Parenthood.child_id)
+        .join(Parent, Parenthood.parent_id == Parent.id)
+        .where(
+            Child.group_id == collection.class_group_id,
+            Parent.account_id == user_id
+        )
+    )
+
+    # Execute the query and check if at least one child is found
+    result = session.exec(query).first()
+    return result is not None

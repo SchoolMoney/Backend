@@ -10,11 +10,13 @@ from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import Collection, Parent, ParentGroupRole
 from src.Service import Auth
 from src.Service.Collection import collection_service
-from src.repository import collection_repository, child_repository
+from src.repository import collection_repository, child_repository, bank_account_repository, parent_repository
 from src.repository.collection_repository import gather_collection_view_data
-from src.repository import parent_repository
 from src.Service.Collection.collection_validator import (
     check_if_user_can_view_collection,
+)
+from src.Model.BankAccountOperation import (
+    BankAccountOperation as ModelBankAccountOperation,
 )
 
 collection_router = APIRouter()
