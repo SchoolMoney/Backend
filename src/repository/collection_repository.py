@@ -4,6 +4,7 @@ from typing import List, Optional, Sequence
 from fastapi import logger
 from sqlmodel import select, and_, func
 
+from src.repository import collection_operations_repository
 import src.SQL as SQL
 from src.Model.CollectionModel import CollectionChildrenList
 from src.Model.UserAccountPrivilegeEnum import UserAccountPrivilegeEnum
@@ -170,7 +171,7 @@ async def get_list_of_children_for_collection(
 async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) -> dict:
     """Collect data for class view by running all queries concurrently"""
 
-    collection, children, documents = await asyncio.gather(
+    collection, children, operations, operations = await asyncio.gather(
         get_by_id(session=await SQL.get_async_session(), collection_id=collection_id),
         get_list_of_children_for_collection(
             session=await SQL.get_async_session(), collection_id=collection_id
@@ -178,12 +179,16 @@ async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) 
         collection_documents_repository.get(
             session=await SQL.get_async_session(), collection_id=collection_id
         ),
+        collection_operations_repository.get(
+            session=await SQL.get_async_session(), collection_id=collection_id
+        ),
     )
 
     return {
         "collection": collection.model_dump(),
+        "operations": [operation.model_dump() for operation in operations],
         "children": [child.model_dump() for child in children],
-        "documents": [document.model_dump() for document in documents],
+        "documents": [document.model_dump() for document in operations],
     }
 
 
