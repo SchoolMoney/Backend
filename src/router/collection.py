@@ -364,6 +364,112 @@ async def restore(
         )
 
 
+@collection_router.put(
+    "/{collection_id}/refund/{child_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def refund(
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    collection_id: int,
+    child_id: int,
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+) -> None:
+    parents: list[SQL.Tables.Parent] = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Parent)
+            .join(SQL.Tables.Parenthood)
+            .where(SQL.Tables.Parenthood.child_id == child_id)
+        )
+    ).all()
+
+    if user.user_id not in [parent.id for parent in parents]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to withdraw this child",
+        )
+
+    collection: SQL.Tables.Collection = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Collection).where(
+                SQL.Tables.Collection.id == collection_id
+            )
+        )
+    ).first()
+
+    if collection.status != CollectionStatus.OPEN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot withdraw from a collection with a status other than OPEN",
+        )
+
+    operation = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.CollectionOperation).where(
+                SQL.Tables.CollectionOperation.child_id == child_id,
+                SQL.Tables.CollectionOperation.collection_id == collection_id,
+                SQL.Tables.CollectionOperation.operation_type
+                == CollectionOperationType.PAY,
+            )
+        )
+    ).first()
+
+    if not operation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No operation to restore found",
+        )
+
+    collection_bank_account: SQL.Tables.BankAccount = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.BankAccount).where(
+                SQL.Tables.BankAccount.id == collection.bank_account_id
+            )
+        )
+    ).first()
+
+    available_collection_funds = await collection_bank_account.get_balance(sql_session)
+
+    if available_collection_funds < collection.price:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient funds in the collection account",
+        )
+
+    # Parent who is responsible for the child, might be different from the one who paid
+    # Find the parent who paid for the child to refund to them
+    parent: SQL.Tables.Parent = next(
+        (p for p in parents if p.account_id == operation.requester_id), None
+    )
+
+    if not parent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Requestor not found. Cannot refund",
+        )
+
+    try:
+        operation.operation_type = CollectionOperationType.REFUND
+        operation.operation_date = date.today()
+        operation.requester_id = user.user_id
+        sql_session.add(
+            SQL.Tables.BankAccountOperation(
+                operation_date=date.today(),
+                amount=collection.price,
+                title=f"Refund for collection {collection.name}",
+                description=f"Refund for collection {collection.name} for child {child_id}",
+                source_account_id=collection.bank_account_id,
+                destination_account_id=parent.account_id,
+            )
+        )
+        await sql_session.commit()
+    except Exception:
+        await sql_session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to restore child",
+        )
+
+
 @collection_router.delete("/{collection_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
