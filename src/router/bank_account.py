@@ -1,4 +1,4 @@
-from typing import Annotated, List, Sequence
+from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 import datetime
 import src.SQL as SQL
@@ -9,9 +9,12 @@ from src.repository import bank_account_repository
 from src.repository import parent_repository
 from src.Model.BankAccount import BankAccount, ExternalBankAccountOperation
 from src.Model.BankAccountOperation import BankAccountBalance
-from src.repository.bank_account_repository import get_bank_account_operations
+from src.repository.bank_account_repository import get_bank_account_operations_with_iban
 from src.repository.parent_repository import get_by_user_account
 import src.SQL.Enum.CollectionStatus as CollectionStatus
+from src.Model.BankAccountOperation import (
+    BankAccountOperation as ModelBankAccountOperation,
+)
 
 bank_account_router = APIRouter()
 
@@ -181,7 +184,7 @@ async def get(
 @bank_account_router.get(
     "/operations/{bank_account_id}",
     status_code=status.HTTP_200_OK,
-    response_model=List[SQL.Tables.BankAccountOperation],
+    response_model=list[ModelBankAccountOperation],
 )
 async def get_bank_account_operations_by_id(
     bank_account_id: int,
@@ -199,14 +202,15 @@ async def get_bank_account_operations_by_id(
             detail="Bank account cannot be viewed by this person",
         )
 
-    operations: Sequence[BankAccountOperation] = await get_bank_account_operations(
-        sql_session, bank_account_id
+    operations = await get_bank_account_operations_with_iban(
+        sql_session,
+        bank_account_id,
     )
     if not operations:
         raise HTTPException(
             status_code=status.HTTP_204_NO_CONTENT,
         )
-    return [operation.model_dump() for operation in operations]
+    return operations
 
 
 @bank_account_router.post(
