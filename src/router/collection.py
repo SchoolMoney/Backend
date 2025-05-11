@@ -220,24 +220,25 @@ async def pay(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Insufficient funds",
         )
-
+    payment = SQL.Tables.BankAccountOperation(
+        operation_date=date.today(),
+        amount=collection.price,
+        title=f"Collection Payment - {collection.name}",
+        description=f"Payment for child {child.name} {child.surname}",
+        source_account_id=bank_account.id,
+        destination_account_id=collection.bank_account_id,
+    )
     try:
+        sql_session.add(payment)
+        await sql_session.commit()
+        await sql_session.refresh(payment)
         sql_session.add(
             SQL.Tables.CollectionOperation(
                 child_id=child_id,
                 collection_id=collection_id,
                 operation_type=CollectionOperationType.PAY,
                 requester_id=user.user_id,
-            )
-        )
-        sql_session.add(
-            SQL.Tables.BankAccountOperation(
-                operation_date=date.today(),
-                amount=collection.price,
-                title=f"Collection Payment - {collection.name}",
-                description=f"Payment for child {child.name} {child.surname}",
-                source_account_id=bank_account.id,
-                destination_account_id=collection.bank_account_id,
+                payment_id=payment.operation_id,
             )
         )
         await sql_session.commit()
@@ -464,20 +465,23 @@ async def refund(
         )
     ).first()
 
+    payment = SQL.Tables.BankAccountOperation(
+        operation_date=date.today(),
+        amount=collection.price,
+        title=f"Collection refund - {collection.name}",
+        description=f"Refund collection payment for child {child.name} {child.surname}",
+        source_account_id=collection.bank_account_id,
+        destination_account_id=parent.account_id,
+    )
+
     try:
+        sql_session.add(payment)
+        await sql_session.commit()
+        await sql_session.refresh(payment)
         operation.operation_type = CollectionOperationType.REFUND
         operation.operation_date = date.today()
         operation.requester_id = user.user_id
-        sql_session.add(
-            SQL.Tables.BankAccountOperation(
-                operation_date=date.today(),
-                amount=collection.price,
-                title=f"Collection refund - {collection.name}",
-                description=f"Refund collection payment ({collection.name}) for child {child.name} {child.surname}",
-                source_account_id=collection.bank_account_id,
-                destination_account_id=parent.account_id,
-            )
-        )
+        operation.payment_id = payment.operation_id
         await sql_session.commit()
     except Exception:
         await sql_session.rollback()
@@ -541,11 +545,24 @@ async def cancel_collection(
             detail="Cannot cancel collection with a status other than OPEN",
         )
 
-    payments_to_returns: list[SQL.Tables.BankAccountOperation] = (
+    payments_to_returns: list[SQL.Tables.CollectionOperation] = (
         await sql_session.exec(
-            SQL.select(SQL.Tables.BankAccountOperation).where(
-                SQL.Tables.BankAccountOperation.destination_account_id
-                == collection.bank_account_id,
+            SQL.select(
+                SQL.Tables.Child.id.label("child_id"),
+                SQL.Tables.Child.name.label("child_name"),
+                SQL.Tables.Child.surname.label("child_surname"),
+                SQL.Tables.BankAccountOperation.source_account_id.label(
+                    "source_account_id"
+                ),
+                SQL.Tables.BankAccountOperation.operation_date.label("operation_date"),
+            )
+            .select_from(SQL.Tables.CollectionOperation)
+            .join(SQL.Tables.Child)
+            .join(SQL.Tables.BankAccountOperation)
+            .where(
+                SQL.Tables.CollectionOperation.collection_id == collection_id,
+                SQL.Tables.CollectionOperation.operation_type
+                == CollectionOperationType.PAY,
             )
         )
     ).all()
@@ -566,18 +583,6 @@ async def cancel_collection(
             detail="Insufficient funds in the collection account to proceed cancellation",
         )
 
-    for payment in payments_to_returns:
-        sql_session.add(
-            SQL.Tables.BankAccountOperation(
-                operation_date=date.today(),
-                amount=payment.amount,
-                title=f"Cancelled collection refund - {collection.name}",
-                description=f"Refund for cancelled collection {collection.name}, due to payment at {payment.operation_date}",
-                source_account_id=collection.bank_account_id,
-                destination_account_id=payment.source_account_id,
-            )
-        )
-
     child_status: list[SQL.Tables.CollectionOperation] = (
         await sql_session.exec(
             SQL.select(SQL.Tables.CollectionOperation).where(
@@ -586,14 +591,47 @@ async def cancel_collection(
         )
     ).all()
 
-    for i in range(len(child_status)):
-        child_status[i].operation_type = CollectionOperationType.REFUND
+    # key is child_id, value is payment_id
+    payment_id_helper: dict[int, int] = {}
+
+    try:
+        for payment in payments_to_returns:
+            refund_payment = SQL.Tables.BankAccountOperation(
+                operation_date=date.today(),
+                amount=collection.price,
+                title=f"Cancelled collection refund - {collection.name}",
+                description=f"Cancelled collection refund for child {payment.child_name} {payment.child_surname}",
+                source_account_id=collection.bank_account_id,
+                destination_account_id=payment.source_account_id,
+            )
+
+            sql_session.add(refund_payment)
+            await sql_session.commit()
+            await sql_session.refresh(refund_payment)
+            payment_id_helper[payment.child_id] = refund_payment.operation_id
+
+        for i in range(len(child_status)):
+            if refund_payment_id_to_set := payment_id_helper.get(
+                child_status[i].child_id, None
+            ):
+                child_status[i].payment_id = refund_payment_id_to_set
+
+            child_status[i].operation_type = CollectionOperationType.REFUND
+
+        await sql_session.commit()
+    except Exception:
+        await sql_session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to process refund payment",
+        )
 
     collection.status = CollectionStatus.CANCELLED
 
     try:
         await sql_session.commit()
     except Exception:
+        await sql_session.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not cancel collection",
