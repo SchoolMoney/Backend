@@ -223,6 +223,7 @@ async def withdraw_from_collection(
     requestData: ExternalBankAccountOperation,
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+    use_personal_account: bool = False,
 ):
     sql_bank_account = (
         await sql_session.exec(
@@ -261,8 +262,27 @@ async def withdraw_from_collection(
     if available_balance < requestData.amount:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Not enough money",
+            detail="Insufficient funds",
         )
+
+    destination_bank_account_id = None
+    payment_description = f"Cashier withdraw to {requestData.account_number}"
+    if use_personal_account:
+        parent_bank_account = (
+            await sql_session.exec(
+                SQL.select(SQL.Tables.BankAccount).where(
+                    SQL.Tables.BankAccount.id == parent_profile.bank_account_id
+                )
+            )
+        ).first()
+
+        if not parent_bank_account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Destination bank account not found",
+            )
+        destination_bank_account_id = parent_bank_account.id
+        payment_description = "Cashier withdraw to personal account"
 
     try:
         sql_session.add(
@@ -270,9 +290,9 @@ async def withdraw_from_collection(
                 operation_date=datetime.date.today(),
                 amount=requestData.amount,
                 title="Money Withdrawal",
-                description=f"Money Withdrawal to {requestData.account_number}",
+                description=payment_description,
                 source_account_id=sql_bank_account.id,
-                destination_account_id=None,
+                destination_account_id=destination_bank_account_id,
             )
         )
         collection.withdrawn_money += requestData.amount
@@ -291,3 +311,86 @@ async def withdraw_from_collection(
         account_id=sql_bank_account.id,
         balance=balance,
     )
+
+
+@bank_account_router.post(
+    "/{bank_account_id}/collection/deposit",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def deposit_to_collection(
+    bank_account_id: int,
+    requestData: ExternalBankAccountOperation,
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+):
+    parent_profile = await parent_repository.get_by_user_account(
+        sql_session, user.user_id
+    )
+
+    parent_bank_account = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.BankAccount).where(
+                SQL.Tables.BankAccount.id == parent_profile.bank_account_id
+            )
+        )
+    ).first()
+
+    if not parent_bank_account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Source bank account not found",
+        )
+
+    collection = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Collection).where(
+                SQL.Tables.Collection.bank_account_id == bank_account_id
+            )
+        )
+    ).first()
+
+    if not collection:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Collection not found",
+        )
+
+    if parent_profile.account_id != collection.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not the owner of this collection",
+        )
+
+    if collection.status == CollectionStatus.BLOCKED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot deposit money to blocked collection",
+        )
+
+    available_balance = await parent_bank_account.get_balance(sql_session)
+
+    if available_balance < requestData.amount:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient funds",
+        )
+
+    try:
+        sql_session.add(
+            SQL.Tables.BankAccountOperation(
+                operation_date=datetime.date.today(),
+                amount=requestData.amount,
+                title="Money Deposit",
+                description="Cashier deposit money to collection account",
+                source_account_id=parent_bank_account.id,
+                destination_account_id=collection.bank_account_id,
+            )
+        )
+        await sql_session.commit()
+    except Exception:
+        await sql_session.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not deposit money",
+        )

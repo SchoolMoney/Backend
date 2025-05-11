@@ -171,8 +171,10 @@ async def get_list_of_children_for_collection(
 async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) -> dict:
     """Collect data for class view by running all queries concurrently"""
 
-    collection = await get_by_id(session=await SQL.get_async_session(), collection_id=collection_id)
-    children, documents, raw_operations = await asyncio.gather(
+    collection = await get_by_id(
+        session=await SQL.get_async_session(), collection_id=collection_id
+    )
+    children, documents, raw_operations, bank_account_details = await asyncio.gather(
         get_list_of_children_for_collection(
             session=await SQL.get_async_session(), collection_id=collection_id
         ),
@@ -180,10 +182,15 @@ async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) 
             session=await SQL.get_async_session(), collection_id=collection_id
         ),
         bank_account_repository.get_bank_account_operations_with_iban(
-            session=await SQL.get_async_session(), bank_account_id=collection.bank_account_id
+            session=await SQL.get_async_session(),
+            bank_account_id=collection.bank_account_id,
+        ),
+        bank_account_repository.get_bank_account_details(
+            session=await SQL.get_async_session(),
+            bank_account_id=collection.bank_account_id,
         ),
     )
-    
+
     # Here we map the raw operations (returned as SQLAlchemy Row objects) to dictionaries.
     # This relies on SQLAlchemy's built-in _mapping attribute.
     # It does not require us to write a custom dumping function inside the repository.
@@ -191,8 +198,9 @@ async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) 
         operations = [dict(op._mapping) for op in raw_operations]
     else:
         operations = raw_operations
-    
+
     return {
+        "bank_account_details": bank_account_details,
         "collection": collection.model_dump(),
         "operations": operations,
         "children": [child.model_dump() for child in children],
@@ -261,9 +269,11 @@ async def delete(session: SQL.AsyncSession, collection_id: int) -> bool:
     except Exception as e:
         await session.rollback()
         raise e
-      
-      
-def is_user_assigned_to_collection(session: SQL.AsyncSession, user_id: int, collection_id: int) -> bool:
+
+
+def is_user_assigned_to_collection(
+    session: SQL.AsyncSession, user_id: int, collection_id: int
+) -> bool:
     # First, retrieve the requested collection to get its class_group_id
     collection = session.get(Collection, collection_id)
     if not collection:
@@ -277,8 +287,7 @@ def is_user_assigned_to_collection(session: SQL.AsyncSession, user_id: int, coll
         .join(Parenthood, Child.id == Parenthood.child_id)
         .join(Parent, Parenthood.parent_id == Parent.id)
         .where(
-            Child.group_id == collection.class_group_id,
-            Parent.account_id == user_id
+            Child.group_id == collection.class_group_id, Parent.account_id == user_id
         )
     )
 

@@ -82,3 +82,17 @@ async def get_bank_account_operations_with_iban(
         return None
 
     return result
+
+
+async def get_bank_account_details(
+    session: SQL.AsyncSession, bank_account_id: int
+) -> dict[str, str | int] | None:
+    query = select(SQL.Tables.BankAccount).where(
+        SQL.Tables.BankAccount.id == bank_account_id
+    )
+
+    result = (await session.exec(query)).first()
+    return {
+        **result.model_dump(),
+        "balance": (await result.get_balance(session)),
+    }
