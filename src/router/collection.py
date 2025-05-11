@@ -550,6 +550,22 @@ async def cancel_collection(
         )
     ).all()
 
+    collection_bank_account: SQL.Tables.BankAccount = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.BankAccount).where(
+                SQL.Tables.BankAccount.id == collection.bank_account_id
+            )
+        )
+    ).first()
+
+    available_collection_funds = await collection_bank_account.get_balance(sql_session)
+
+    if available_collection_funds < collection.price * len(payments_to_returns):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient funds in the collection account to proceed cancellation",
+        )
+
     for payment in payments_to_returns:
         sql_session.add(
             SQL.Tables.BankAccountOperation(

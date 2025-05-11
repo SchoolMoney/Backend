@@ -56,4 +56,5 @@ class CollectionOperation(SQLModel, table=True):
     collection_id: int = Field(primary_key=True, foreign_key="collection.id")
     operation_date: date = Field(default=date.today())
     requester_id: int = Field(foreign_key="parent.id")
+    payment_id: int | None = Field(foreign_key="bank_account_operation.operation_id")
     operation_type: int
