@@ -10,7 +10,12 @@ from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import Collection, Parent, ParentGroupRole
 from src.Service import Auth
 from src.Service.Collection import collection_service
-from src.repository import collection_repository, child_repository, bank_account_repository, parent_repository
+from src.repository import (
+    collection_repository,
+    child_repository,
+    bank_account_repository,
+    parent_repository,
+)
 from src.repository.collection_repository import gather_collection_view_data
 from src.Service.Collection.collection_validator import (
     check_if_user_can_view_collection,
@@ -229,8 +234,8 @@ async def pay(
             SQL.Tables.BankAccountOperation(
                 operation_date=date.today(),
                 amount=collection.price,
-                title=f"Payment for child {child.name} {child.surname}",
-                description=f"Payment for collection {collection.name}",
+                title=f"Collection Payment - {collection.name}",
+                description=f"Payment for child {child.name} {child.surname}",
                 source_account_id=bank_account.id,
                 destination_account_id=collection.bank_account_id,
             )
@@ -453,6 +458,12 @@ async def refund(
             detail="Requestor not found. Cannot refund",
         )
 
+    child: SQL.Tables.Child = (
+        await sql_session.exec(
+            SQL.select(SQL.Tables.Child).where(SQL.Tables.Child.id == child_id)
+        )
+    ).first()
+
     try:
         operation.operation_type = CollectionOperationType.REFUND
         operation.operation_date = date.today()
@@ -461,8 +472,8 @@ async def refund(
             SQL.Tables.BankAccountOperation(
                 operation_date=date.today(),
                 amount=collection.price,
-                title=f"Refund for collection {collection.name}",
-                description=f"Refund for collection {collection.name} for child {child_id}",
+                title=f"Collection refund - {collection.name}",
+                description=f"Refund collection payment ({collection.name}) for child {child.name} {child.surname}",
                 source_account_id=collection.bank_account_id,
                 destination_account_id=parent.account_id,
             )
@@ -544,8 +555,8 @@ async def cancel_collection(
             SQL.Tables.BankAccountOperation(
                 operation_date=date.today(),
                 amount=payment.amount,
-                title=f"Refund for collection {collection.name}",
-                description=f"Refund for collection {collection.name}",
+                title=f"Cancelled collection refund - {collection.name}",
+                description=f"Refund for cancelled collection {collection.name}, due to payment at {payment.operation_date}",
                 source_account_id=collection.bank_account_id,
                 destination_account_id=payment.source_account_id,
             )

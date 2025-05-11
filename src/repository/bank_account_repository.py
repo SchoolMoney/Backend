@@ -60,10 +60,15 @@ async def get_bank_account_operations_with_iban(
             DestinationAccount.account_number.label("destination_iban"),
         )
         .select_from(BankAccountOperation)
-        .join(SourceAccount, BankAccountOperation.source_account_id == SourceAccount.id)
+        .join(
+            SourceAccount,
+            BankAccountOperation.source_account_id == SourceAccount.id,
+            isouter=True,
+        )
         .join(
             DestinationAccount,
             BankAccountOperation.destination_account_id == DestinationAccount.id,
+            isouter=True,
         )
         .where(
             or_(
