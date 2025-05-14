@@ -52,8 +52,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
                 # Send to all active participants
                 for participant_id in conversation.participants:
                     if (
-                        participant_id != user_id
-                        and participant_id in active_connections
+                            participant_id != user_id
+                            and participant_id in active_connections
                     ):
                         await active_connections[participant_id].send_text(
                             message.model_dump_json()
@@ -69,8 +69,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
 
 @chat_router.post("/conversations", response_model=Conversation)
 async def create_conversation(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-    request: CreateConversation,
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        request: CreateConversation,
 ):
     try:
         # Validate that the user is part of the conversation
@@ -96,7 +96,7 @@ async def create_conversation(
 
 @chat_router.get("/conversations", response_model=List[Conversation])
 async def get_user_conversations(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())]
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())]
 ):
     try:
         return await chat_repository.get_user_conversations(user.user_id)
@@ -112,10 +112,10 @@ async def get_user_conversations(
     "/conversations/{conversation_id}/messages", response_model=List[Message]
 )
 async def get_conversation_messages(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-    conversation_id: str,
-    limit: int = 50,
-    skip: int = 0,
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        conversation_id: str,
+        limit: int = 50,
+        skip: int = 0,
 ):
     try:
         # Validate user is part of conversation
@@ -175,4 +175,34 @@ async def mark_messages_read(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to mark messages as read"
+        )
+
+
+@chat_router.get("/conversations/{conversation_id}/unread_count")
+async def get_unread_message_count(
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        conversation_id: str,
+):
+    try:
+        # Validate user is part of conversation
+        conversation = await chat_repository.get_conversation(conversation_id)
+        if not conversation or user.user_id not in conversation.participants:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User not authorized to access this conversation",
+            )
+
+        # Get count of unread messages
+        unread_count = await chat_repository.get_unread_message_count(
+            conversation_id, user.user_id
+        )
+
+        return {"unread_count": unread_count}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.logger.error(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve unread message count",
         )
