@@ -38,7 +38,7 @@ async def save_message(message: Message) -> str:
 
 
 async def get_conversation_messages(
-    conversation_id: str, limit: int = 50, skip: int = 0
+        conversation_id: str, limit: int = 50, skip: int = 0
 ) -> List[Message]:
     cursor = (
         messages_collection.find({"conversation_id": conversation_id})
@@ -60,6 +60,7 @@ async def mark_messages_as_read(conversation_id: str, user_id: int) -> int:
     )
     return result.modified_count
 
+
 async def mark_specific_messages_as_read(message_ids: List[str], user_id: int) -> int:
     """Mark specific messages as read by a user"""
     object_ids = [ObjectId(msg_id) for msg_id in message_ids]
@@ -77,3 +78,12 @@ async def get_message_by_id(message_id: str) -> Optional[Message]:
         result["id"] = str(result.pop("_id"))
         return Message(**result)
     return None
+
+
+async def get_unread_message_count(conversation_id: str, user_id: int) -> int:
+    """Count messages in a conversation that haven't been read by the user"""
+    count = await messages_collection.count_documents({
+        "conversation_id": conversation_id,
+        "read_by": {"$ne": user_id}
+    })
+    return count
