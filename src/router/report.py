@@ -95,7 +95,7 @@ async def generate_financial_report(
                 "total_collected": total_collected,
                 "outstanding_amount": total_expected - total_collected,
                 "withdrawn_money": collection.withdrawn_money,
-                "available_balance": total_collected - collection.withdrawn_money,
+                "available_balance": total_collected - collection.withdrawn_money if total_collected - collection.withdrawn_money >= 0  else 0,
             },
             "paid_children": paid_children,
             "unpaid_children": unpaid_children,
