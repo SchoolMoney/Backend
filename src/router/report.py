@@ -126,12 +126,6 @@ async def generate_class_financial_report(
         result = await sql_session.exec(query)
         collections = result.all()
 
-        if not collections:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No collections found for class ID {class_id}"
-            )
-
         class_query = SQL.select(SQL.Tables.ClassGroup).where(
             SQL.Tables.ClassGroup.id == class_id
         )
