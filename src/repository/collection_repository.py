@@ -188,6 +188,7 @@ async def gather_collection_view_data(collection_id: int, user: AuthorizedUser) 
         bank_account_repository.get_bank_account_details(
             session=await SQL.get_async_session(),
             bank_account_id=collection.bank_account_id,
+            cashier_id=collection.owner_id,
         ),
     )
 

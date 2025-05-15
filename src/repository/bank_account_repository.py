@@ -1,6 +1,6 @@
 from sqlmodel import or_
 from typing import Optional, Sequence
-from sqlmodel import select
+from sqlmodel import select, func
 
 import src.SQL as SQL
 from src.SQL.Tables import BankAccount, BankAccountOperation
@@ -85,14 +85,42 @@ async def get_bank_account_operations_with_iban(
 
 
 async def get_bank_account_details(
-    session: SQL.AsyncSession, bank_account_id: int
+    session: SQL.AsyncSession,
+    bank_account_id: int,
+    cashier_id: int | None = None,
 ) -> dict[str, str | int] | None:
     query = select(SQL.Tables.BankAccount).where(
         SQL.Tables.BankAccount.id == bank_account_id
     )
+    detailed_info = {}
 
     result = (await session.exec(query)).first()
+
+    detailed_info["balance"] = await result.get_balance(session)
+
+    if cashier_id:
+        cashier = (
+            await session.exec(
+                select(SQL.Tables.Parent).where(SQL.Tables.Parent.id == cashier_id)
+            )
+        ).first()
+
+        withdrawn_money = (
+            await session.exec(
+                select(func.sum(BankAccountOperation.amount)).where(
+                    BankAccountOperation.source_account_id == bank_account_id,
+                    or_(
+                        BankAccountOperation.destination_account_id
+                        == cashier.bank_account_id,
+                        BankAccountOperation.destination_account_id is None,
+                    ),
+                )
+            )
+        ).first()
+
+        detailed_info["withdrawn_money"] = withdrawn_money or 0.0
+
     return {
         **result.model_dump(),
-        "balance": (await result.get_balance(session)),
+        **detailed_info,
     }
