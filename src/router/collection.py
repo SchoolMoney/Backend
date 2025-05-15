@@ -637,6 +637,30 @@ async def cancel_collection(
             detail="Could not cancel collection",
         )
 
+    collection_money_after_refunds = await collection_bank_account.get_balance(
+        sql_session
+    )
+
+    if collection_money_after_refunds > 0:
+        collection_bank_account_operation = ModelBankAccountOperation(
+            operation_date=date.today(),
+            amount=collection_money_after_refunds,
+            title=f"Cancelled collection refund - {collection.name}",
+            description="Refund cashier deposits",
+            source_account_id=collection.bank_account_id,
+            destination_account_id=collection.owner_id,
+        )
+
+        try:
+            sql_session.add(collection_bank_account_operation)
+            await sql_session.commit()
+        except Exception:
+            await sql_session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to process refund payment",
+            )
+
 
 @collection_router.put("/{collection_id}/block", status_code=status.HTTP_204_NO_CONTENT)
 async def block_collection(
