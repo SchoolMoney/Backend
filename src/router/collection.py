@@ -8,6 +8,7 @@ from src.SQL.Enum import CollectionOperationType
 from src.Model.CollectionStatusEnum import CollectionStatusEnum
 from src.SQL.Enum.Privilege import ADMIN_USER
 from src.SQL.Tables import Collection, Parent, ParentGroupRole
+from src.SQL.Tables.Financial import BankAccountOperation
 from src.Service import Auth
 from src.Service.Collection import collection_service
 from src.repository import (
@@ -19,9 +20,6 @@ from src.repository import (
 from src.repository.collection_repository import gather_collection_view_data
 from src.Service.Collection.collection_validator import (
     check_if_user_can_view_collection,
-)
-from src.Model.BankAccountOperation import (
-    BankAccountOperation as ModelBankAccountOperation,
 )
 
 collection_router = APIRouter()
@@ -642,13 +640,13 @@ async def cancel_collection(
     )
 
     if collection_money_after_refunds > 0:
-        collection_bank_account_operation = ModelBankAccountOperation(
+        collection_bank_account_operation = BankAccountOperation(
             operation_date=date.today(),
             amount=collection_money_after_refunds,
             title=f"Cancelled collection refund - {collection.name}",
             description="Refund cashier deposits",
             source_account_id=collection.bank_account_id,
-            destination_account_id=collection.owner_id,
+            destination_account_id=parent_profile.bank_account_id,
         )
 
         try:
