@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status, logger
-from src.Model.CollectionModel import CreateCollection, ion
+from src.Model.CollectionModel import CreateCollection, UpdateCollection
 import src.SQL as SQL
 import src.SQL.Enum.CollectionStatus as CollectionStatus
 from src.SQL.Enum import CollectionOperationType

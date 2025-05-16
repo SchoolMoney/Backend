@@ -1,4 +1,4 @@
-from src.Model.CollectionModel import CreateCollection
+from src.Model.CollectionModel import CreateCollection, UpdateCollection
 from src.repository import collection_repository
 import src.SQL as SQL
 from src.Service import Auth
@@ -40,7 +40,7 @@ async def create(
 
 
 async def update(
-    sql_session: SQL.AsyncSession, collection_id: int, update_data: Collection
+    sql_session: SQL.AsyncSession, collection_id: int, update_data: UpdateCollection
 ) -> Collection:
     collection = await collection_repository.get_by_id(sql_session, collection_id)
     if not collection:
