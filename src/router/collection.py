@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status, logger
-from src.Model.CollectionModel import CreateCollection
+from src.Model.CollectionModel import CreateCollection, ion
 import src.SQL as SQL
 import src.SQL.Enum.CollectionStatus as CollectionStatus
 from src.SQL.Enum import CollectionOperationType
@@ -111,7 +111,7 @@ async def create(
 async def update(
     user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     collection_id: int,
-    updated_collection: Collection,
+    updated_collection: UpdateCollection,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ) -> Collection:
     try:
