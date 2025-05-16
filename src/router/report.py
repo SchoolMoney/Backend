@@ -63,15 +63,27 @@ async def generate_financial_report(
         unsubscribe_result = await sql_session.exec(unsubscribe_query)
         unsubscribe_operations = unsubscribe_result.all()
 
+        # Get refund operations
+        refund_query = SQL.select(SQL.Tables.CollectionOperation).where(
+            SQL.Tables.CollectionOperation.collection_id == collection_id,
+            SQL.Tables.CollectionOperation.operation_type == CollectionOperationType.REFUND,
+        )
+        refund_result = await sql_session.exec(refund_query)
+        refund_operations = refund_result.all()
+
         paid_child_ids = {op.child_id for op in payment_operations}
         unsubscribed_child_ids = {op.child_id for op in unsubscribe_operations}
+        refunded_child_ids = {op.child_id for op in refund_operations}
+
+        # Create a set of all excluded children (unsubscribed or refunded)
+        excluded_child_ids = unsubscribed_child_ids.union(refunded_child_ids)
 
         paid_children = []
         unpaid_children = []
 
         for child in children_data:
-            # Skip unsubscribed children entirely
-            if child.child_id in unsubscribed_child_ids:
+            # Skip unsubscribed and refunded children
+            if child.child_id in excluded_child_ids:
                 continue
 
             child_info = {
@@ -85,8 +97,8 @@ async def generate_financial_report(
             else:
                 unpaid_children.append(child_info)
 
-        # Count only children who are not unsubscribed
-        active_children_count = len(children_data) - len(unsubscribed_child_ids)
+        # Count only children who are not excluded (unsubscribed or refunded)
+        active_children_count = len(children_data) - len(excluded_child_ids)
         total_expected = collection.price * active_children_count
         total_collected = collection.price * len(paid_children)
 
@@ -176,10 +188,37 @@ async def generate_class_financial_report(
             payment_result = await sql_session.exec(payment_query)
             payments = payment_result.all()
 
+            # Get unsubscribe operations
+            unsubscribe_query = SQL.select(SQL.Tables.CollectionOperation).where(
+                SQL.Tables.CollectionOperation.collection_id == collection.id,
+                SQL.Tables.CollectionOperation.operation_type == CollectionOperationType.DISCHARGE,
+            )
+            unsubscribe_result = await sql_session.exec(unsubscribe_query)
+            unsubscribe_operations = unsubscribe_result.all()
+
+            # Get refund operations
+            refund_query = SQL.select(SQL.Tables.CollectionOperation).where(
+                SQL.Tables.CollectionOperation.collection_id == collection.id,
+                SQL.Tables.CollectionOperation.operation_type == CollectionOperationType.REFUND,
+            )
+            refund_result = await sql_session.exec(refund_query)
+            refund_operations = refund_result.all()
+
+            # Create sets of child IDs
+            paid_child_ids = {op.child_id for op in payments}
+            unsubscribed_child_ids = {op.child_id for op in unsubscribe_operations}
+            refunded_child_ids = {op.child_id for op in refund_operations}
+
+            # Calculate excluded children (unsubscribed or refunded)
+            excluded_child_ids = unsubscribed_child_ids.union(refunded_child_ids)
+            active_children_count = len(children) - len(excluded_child_ids)
+
+            # Count actual paid children (excluding those with refunds)
+            valid_paid_count = len([child_id for child_id in paid_child_ids if child_id not in excluded_child_ids])
+
             # Calculate collection-specific totals
-            paid_count = len(payments)
-            expected_amount = collection.price * len(children)
-            collected_amount = collection.price * paid_count
+            expected_amount = collection.price * active_children_count
+            collected_amount = collection.price * valid_paid_count
 
             # Add to overall totals
             total_expected += expected_amount
@@ -194,9 +233,9 @@ async def generate_class_financial_report(
                 "end_date": collection.end_date.isoformat() if collection.end_date else None,
                 "price_per_child": collection.price,
                 "status": collection.status,
-                "total_children": len(children),
-                "paid_children": paid_count,
-                "unpaid_children": len(children) - paid_count,
+                "total_children": active_children_count,
+                "paid_children": valid_paid_count,
+                "unpaid_children": active_children_count - valid_paid_count,
                 "expected_amount": expected_amount,
                 "collected_amount": collected_amount,
                 "outstanding_amount": expected_amount - collected_amount,
