@@ -16,9 +16,9 @@ report_router = APIRouter()
 
 @report_router.get("/financial/collection", status_code=status.HTTP_200_OK)
 async def generate_financial_report(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
-    collection_id: int,
-    sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
+        user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
+        collection_id: int,
+        sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
 ):
     try:
         collection = await collection_repository.get_by_id(sql_session, collection_id)
@@ -47,20 +47,33 @@ async def generate_financial_report(
             session=sql_session, collection_id=collection_id
         )
 
-        query = SQL.select(SQL.Tables.CollectionOperation).where(
+        # Get payment operations
+        payment_query = SQL.select(SQL.Tables.CollectionOperation).where(
             SQL.Tables.CollectionOperation.collection_id == collection_id,
-            SQL.Tables.CollectionOperation.operation_type
-            == CollectionOperationType.PAY,
+            SQL.Tables.CollectionOperation.operation_type == CollectionOperationType.PAY,
         )
-        result = await sql_session.exec(query)
-        payment_operations = result.all()
+        payment_result = await sql_session.exec(payment_query)
+        payment_operations = payment_result.all()
+
+        # Get unsubscribe operations
+        unsubscribe_query = SQL.select(SQL.Tables.CollectionOperation).where(
+            SQL.Tables.CollectionOperation.collection_id == collection_id,
+            SQL.Tables.CollectionOperation.operation_type == CollectionOperationType.DISCHARGE,
+        )
+        unsubscribe_result = await sql_session.exec(unsubscribe_query)
+        unsubscribe_operations = unsubscribe_result.all()
 
         paid_child_ids = {op.child_id for op in payment_operations}
+        unsubscribed_child_ids = {op.child_id for op in unsubscribe_operations}
 
         paid_children = []
         unpaid_children = []
 
         for child in children_data:
+            # Skip unsubscribed children entirely
+            if child.child_id in unsubscribed_child_ids:
+                continue
+
             child_info = {
                 "child_id": child.child_id,
                 "child_name": child.child_name,
@@ -72,7 +85,9 @@ async def generate_financial_report(
             else:
                 unpaid_children.append(child_info)
 
-        total_expected = collection.price * len(children_data)
+        # Count only children who are not unsubscribed
+        active_children_count = len(children_data) - len(unsubscribed_child_ids)
+        total_expected = collection.price * active_children_count
         total_collected = collection.price * len(paid_children)
 
         financial_report = {
@@ -88,14 +103,14 @@ async def generate_financial_report(
                 "status": collection.status,
             },
             "financial_summary": {
-                "total_children": len(children_data),
+                "total_children": active_children_count,
                 "paid_children_count": len(paid_children),
                 "unpaid_children_count": len(unpaid_children),
                 "total_expected": total_expected,
                 "total_collected": total_collected,
                 "outstanding_amount": total_expected - total_collected,
                 "withdrawn_money": collection.withdrawn_money,
-                "available_balance": total_collected - collection.withdrawn_money if total_collected - collection.withdrawn_money >= 0  else 0,
+                "available_balance": total_collected - collection.withdrawn_money if total_collected - collection.withdrawn_money >= 0 else 0,
             },
             "paid_children": paid_children,
             "unpaid_children": unpaid_children,
