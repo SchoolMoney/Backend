@@ -109,7 +109,7 @@ async def create(
     "/{collection_id}", status_code=status.HTTP_200_OK, response_model=Collection
 )
 async def update(
-    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user(ADMIN_USER))],
+    user: Annotated[Auth.AuthorizedUser, Depends(Auth.authorized_user())],
     collection_id: int,
     updated_collection: Collection,
     sql_session: Annotated[SQL.AsyncSession, Depends(SQL.get_async_session)],
