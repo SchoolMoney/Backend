@@ -50,6 +50,7 @@ class UpdateCollection(BaseModel):
     owner_id: int
     withdrawn_money: float
 
+
 class CollectionChildrenList(BaseModel):
     child_id: int
     child_name: str

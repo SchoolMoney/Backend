@@ -74,7 +74,6 @@ async def deposit(
     try:
         sql_session.add(
             SQL.Tables.BankAccountOperation(
-                operation_date=datetime.date.today(),
                 amount=requestData.amount,
                 title="Money deposit",
                 description="Money deposit",
@@ -135,7 +134,6 @@ async def withdraw(
     try:
         sql_session.add(
             SQL.Tables.BankAccountOperation(
-                operation_date=datetime.date.today(),
                 amount=requestData.amount,
                 title="Money Withdrawal",
                 description=f"Money Withdrawal to {requestData.account_number}",
@@ -287,7 +285,6 @@ async def withdraw_from_collection(
     try:
         sql_session.add(
             SQL.Tables.BankAccountOperation(
-                operation_date=datetime.date.today(),
                 amount=requestData.amount,
                 title="Money Withdrawal",
                 description=payment_description,
@@ -378,7 +375,6 @@ async def deposit_to_collection(
     try:
         sql_session.add(
             SQL.Tables.BankAccountOperation(
-                operation_date=datetime.date.today(),
                 amount=requestData.amount,
                 title="Money Deposit",
                 description="Cashier deposit money to collection account",

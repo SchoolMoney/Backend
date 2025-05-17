@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated, List, Optional, Sequence
 from fastapi import APIRouter, Depends, HTTPException, Query, status, logger
 from src.Model.CollectionModel import CreateCollection, UpdateCollection
@@ -219,7 +219,6 @@ async def pay(
             detail="Insufficient funds",
         )
     payment = SQL.Tables.BankAccountOperation(
-        operation_date=date.today(),
         amount=collection.price,
         title=f"Collection Payment - {collection.name}",
         description=f"Payment for child {child.name} {child.surname}",
@@ -464,7 +463,6 @@ async def refund(
     ).first()
 
     payment = SQL.Tables.BankAccountOperation(
-        operation_date=date.today(),
         amount=collection.price,
         title=f"Collection refund - {collection.name}",
         description=f"Refund collection payment for child {child.name} {child.surname}",
@@ -477,7 +475,7 @@ async def refund(
         await sql_session.commit()
         await sql_session.refresh(payment)
         operation.operation_type = CollectionOperationType.REFUND
-        operation.operation_date = date.today()
+        operation.operation_date = datetime.now()
         operation.requester_id = user.user_id
         operation.payment_id = payment.operation_id
         await sql_session.commit()
@@ -595,7 +593,6 @@ async def cancel_collection(
     try:
         for payment in payments_to_returns:
             refund_payment = SQL.Tables.BankAccountOperation(
-                operation_date=date.today(),
                 amount=collection.price,
                 title=f"Cancelled collection refund - {collection.name}",
                 description=f"Cancelled collection refund for child {payment.child_name} {payment.child_surname}",
@@ -641,7 +638,6 @@ async def cancel_collection(
 
     if collection_money_after_refunds > 0:
         collection_bank_account_operation = BankAccountOperation(
-            operation_date=date.today(),
             amount=collection_money_after_refunds,
             title=f"Cancelled collection refund - {collection.name}",
             description="Refund cashier deposits",

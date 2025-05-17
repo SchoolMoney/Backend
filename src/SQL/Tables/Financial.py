@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field, select, func
 from sqlmodel.ext.asyncio.session import AsyncSession
-from datetime import date
+from datetime import datetime
 
 
 class BankAccount(SQLModel, table=True):
@@ -34,7 +34,7 @@ class BankAccountOperation(SQLModel, table=True):
 
     __tablename__ = "bank_account_operation"
     operation_id: int = Field(primary_key=True)
-    operation_date: date
+    operation_date: datetime = Field(default_factory=datetime.now)
     amount: float
     title: str
     description: str
